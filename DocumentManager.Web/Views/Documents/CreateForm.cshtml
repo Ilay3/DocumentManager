@@ -1,0 +1,124 @@
+﻿@model DocumentManager.Web.Models.DocumentFormViewModel
+
+@{
+    ViewData["Title"] = "Создание документа";
+}
+
+<h1>Создание документа</h1>
+
+<h4>@Model.TemplateName</h4>
+<hr />
+
+<form asp-action="CreateForm" method="post">
+    <input type="hidden" name="templateId" value="@Model.TemplateId" />
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    Основные данные
+                </div>
+                <div class="card-body">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                    @foreach (var field in Model.Fields)
+                    {
+                        <div class="form-group mb-3">
+                            <label for="@field.FieldName">@field.FieldLabel @(field.IsRequired ? "*" : "")</label>
+
+                            @if (field.FieldType == "select" && field.Options.Any())
+                            {
+                                <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="form-control" required="@field.IsRequired">
+                                    <option value="">-- Выберите --</option>
+                                    @foreach (var option in field.Options)
+                                    {
+                                        <option value="@option" selected="@(option == field.Value)">@option</option>
+                                    }
+                                </select>
+                            }
+                            else if (field.FieldType == "date")
+                            {
+                                <input type="date" name="fieldValues[@field.FieldName]" id="@field.FieldName" class="form-control" value="@field.Value" required="@field.IsRequired" />
+                            }
+                            else
+                            {
+                                <input type="text" name="fieldValues[@field.FieldName]" id="@field.FieldName" class="form-control" value="@field.Value" required="@field.IsRequired" />
+                            }
+
+                            <span class="text-danger field-validation-valid" data-valmsg-for="@field.FieldName" data-valmsg-replace="true"></span>
+
+                            @if (field.IsUnique)
+                            {
+                                <small class="form-text text-muted">Это поле должно быть уникальным</small>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    Связанные документы
+                </div>
+                <div class="card-body">
+                    @if (Model.RelatedTemplates.Any())
+                    {
+                        <p>Выберите упаковочные листы, которые нужно создать вместе с паспортом:</p>
+
+                        @foreach (var relatedTemplate in Model.RelatedTemplates)
+                        {
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="selectedRelatedTemplateIds" value="@relatedTemplate.Id" id="related-@relatedTemplate.Id" checked="@Model.SelectedRelatedTemplateIds.Contains(relatedTemplate.Id)" />
+                                <label class="form-check-label" for="related-@relatedTemplate.Id">
+                                    @relatedTemplate.Name
+                                </label>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">Нет доступных связанных документов</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group mt-3">
+        <button type="submit" class="btn btn-primary">Создать</button>
+        <a asp-action="Create" class="btn btn-secondary">Отмена</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        // Динамическое отображение полей в зависимости от условий
+        function updateFieldVisibility() {
+            var variantField = document.getElementById('Variant');
+            if (variantField) {
+                var selectedVariant = variantField.value;
+
+                document.querySelectorAll('[data-condition-field="Variant"]').forEach(function(element) {
+                    var conditionValue = element.getAttribute('data-condition-value');
+                    if (conditionValue === selectedVariant) {
+                        element.style.display = 'block';
+                    } else {
+                        element.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            updateFieldVisibility();
+
+            var variantField = document.getElementById('Variant');
+            if (variantField) {
+                variantField.addEventListener('change', updateFieldVisibility);
+            }
+        });
+    </script>
+}

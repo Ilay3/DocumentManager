@@ -1,0 +1,49 @@
+﻿@model DocumentManager.Web.Models.DocumentFormViewModel
+
+@{
+    ViewData["Title"] = "Подробности шаблона";
+}
+
+<h1>Подробности шаблона</h1>
+
+<div>
+    <h4>@Model.TemplateName</h4>
+    <hr />
+
+    <dl class="row">
+        <dt class="col-sm-3">Код шаблона:</dt>
+        <dd class="col-sm-9">@Model.TemplateCode</dd>
+    </dl>
+
+    <h5 class="mt-4">Поля шаблона:</h5>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Имя поля</th>
+                <th>Метка</th>
+                <th>Тип</th>
+                <th>Обязательное</th>
+                <th>Уникальное</th>
+                <th>Значение по умолчанию</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var field in Model.Fields)
+            {
+                <tr>
+                    <td>@field.FieldName</td>
+                    <td>@field.FieldLabel</td>
+                    <td>@field.FieldType</td>
+                    <td>@(field.IsRequired ? "Да" : "Нет")</td>
+                    <td>@(field.IsUnique ? "Да" : "Нет")</td>
+                    <td>@field.DefaultValue</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div>
+    <a asp-action="Index" class="btn btn-secondary">Назад к списку</a>
+</div>

@@ -1,0 +1,29 @@
+﻿@{
+    ViewData["Title"] = "Главная";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Система управления документами</h1>
+    <p>Система для создания, управления и генерации документов на основе шаблонов.</p>
+
+    <div class="row mt-5">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Документы</h5>
+                    <p class="card-text">Создание и управление документами на основе шаблонов.</p>
+                    <a asp-controller="Documents" asp-action="Index" class="btn btn-primary">Перейти к документам</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Шаблоны</h5>
+                    <p class="card-text">Просмотр доступных шаблонов документов.</p>
+                    <a asp-controller="Templates" asp-action="Index" class="btn btn-secondary">Перейти к шаблонам</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
