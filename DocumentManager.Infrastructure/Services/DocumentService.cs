@@ -7,20 +7,24 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace DocumentManager.Infrastructure.Services
 {
     public class DocumentService : IDocumentService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<DocumentService> _logger;
 
-        public DocumentService(ApplicationDbContext context)
+        public DocumentService(ApplicationDbContext context, ILogger<DocumentService> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<Document>> GetAllDocumentsAsync()
         {
+            _logger.LogInformation("Получение всех документов");
             return await _context.Documents
                 .Include(d => d.DocumentTemplate)
                 .OrderByDescending(d => d.CreatedAt)
@@ -29,6 +33,7 @@ namespace DocumentManager.Infrastructure.Services
 
         public async Task<Document> GetDocumentByIdAsync(int id)
         {
+            _logger.LogInformation($"Получение документа по ID: {id}");
             return await _context.Documents
                 .Include(d => d.DocumentTemplate)
                 .Include(d => d.Values)
@@ -38,6 +43,7 @@ namespace DocumentManager.Infrastructure.Services
 
         public async Task<IEnumerable<Document>> GetDocumentsByTemplateAsync(int templateId)
         {
+            _logger.LogInformation($"Получение документов по шаблону ID: {templateId}");
             return await _context.Documents
                 .Where(d => d.DocumentTemplateId == templateId)
                 .Include(d => d.DocumentTemplate)
@@ -60,6 +66,8 @@ namespace DocumentManager.Infrastructure.Services
 
         public async Task<Document> CreateDocumentAsync(Document document, Dictionary<string, string> fieldValues)
         {
+            _logger.LogInformation($"Создание документа для шаблона {document.DocumentTemplateId}, заводской номер: {document.FactoryNumber}");
+
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
@@ -83,16 +91,19 @@ namespace DocumentManager.Infrastructure.Services
                             };
 
                             _context.DocumentValues.Add(documentValue);
+                            _logger.LogDebug($"Добавлено значение для поля {field.FieldName}: {value}");
                         }
                     }
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    _logger.LogInformation($"Документ успешно создан с ID: {document.Id}");
                     return document;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Ошибка при создании документа");
                     await transaction.RollbackAsync();
                     throw;
                 }
@@ -101,6 +112,8 @@ namespace DocumentManager.Infrastructure.Services
 
         public async Task<bool> UpdateDocumentAsync(Document document, Dictionary<string, string> fieldValues)
         {
+            _logger.LogInformation($"Обновление документа ID: {document.Id}");
+
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
@@ -113,6 +126,7 @@ namespace DocumentManager.Infrastructure.Services
                         .ToListAsync();
 
                     _context.DocumentValues.RemoveRange(existingValues);
+                    _logger.LogDebug($"Удалено {existingValues.Count} старых значений полей");
 
                     // Добавляем новые значения полей
                     var fields = await _context.DocumentFields
@@ -131,16 +145,19 @@ namespace DocumentManager.Infrastructure.Services
                             };
 
                             _context.DocumentValues.Add(documentValue);
+                            _logger.LogDebug($"Добавлено новое значение для поля {field.FieldName}: {value}");
                         }
                     }
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    _logger.LogInformation($"Документ ID: {document.Id} успешно обновлен");
                     return true;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, $"Ошибка при обновлении документа ID: {document.Id}");
                     await transaction.RollbackAsync();
                     throw;
                 }
@@ -149,21 +166,27 @@ namespace DocumentManager.Infrastructure.Services
 
         public async Task<bool> DeleteDocumentAsync(int id)
         {
+            _logger.LogInformation($"Удаление документа ID: {id}");
+
             var document = await _context.Documents.FindAsync(id);
 
             if (document == null)
             {
+                _logger.LogWarning($"Документ ID: {id} не найден для удаления");
                 return false;
             }
 
             _context.Documents.Remove(document);
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation($"Документ ID: {id} успешно удален");
             return true;
         }
 
         public async Task<Dictionary<string, string>> GetDocumentValuesAsync(int documentId)
         {
+            _logger.LogInformation($"Получение значений полей для документа ID: {documentId}");
+
             var values = await _context.DocumentValues
                 .Include(v => v.DocumentField)
                 .Where(v => v.DocumentId == documentId)
@@ -174,13 +197,17 @@ namespace DocumentManager.Infrastructure.Services
             foreach (var value in values)
             {
                 result[value.DocumentField.FieldName] = value.Value;
+                _logger.LogDebug($"Получено значение для поля {value.DocumentField.FieldName}: {value.Value}");
             }
 
+            _logger.LogInformation($"Получено {result.Count} значений полей для документа ID: {documentId}");
             return result;
         }
 
         public async Task<bool> RelateDocumentsAsync(int parentDocumentId, int childDocumentId)
         {
+            _logger.LogInformation($"Связывание документов: родительский ID: {parentDocumentId}, дочерний ID: {childDocumentId}");
+
             var relation = new DocumentRelation
             {
                 ParentDocumentId = parentDocumentId,
@@ -192,24 +219,56 @@ namespace DocumentManager.Infrastructure.Services
             try
             {
                 await _context.SaveChangesAsync();
+                _logger.LogInformation($"Документы успешно связаны");
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Ошибка при связывании документов");
                 return false;
             }
         }
 
         public async Task<IEnumerable<Document>> GetRelatedDocumentsAsync(int documentId)
         {
+            _logger.LogInformation($"Получение связанных документов для ID: {documentId}");
+
             var relations = await _context.DocumentRelations
                 .Where(r => r.ParentDocumentId == documentId)
                 .Include(r => r.ChildDocument)
                     .ThenInclude(d => d.DocumentTemplate)
                 .ToListAsync();
 
-            return relations.Select(r => r.ChildDocument);
+            var relatedDocs = relations.Select(r => r.ChildDocument).ToList();
+            _logger.LogInformation($"Найдено {relatedDocs.Count} связанных документов для ID: {documentId}");
+
+            return relatedDocs;
+        }
+
+        public async Task<bool> UpdateDocumentContentAsync(int documentId, byte[] content, string filePath = null)
+        {
+            _logger.LogInformation($"Обновление содержимого документа ID: {documentId}");
+
+            var document = await _context.Documents.FindAsync(documentId);
+
+            if (document == null)
+            {
+                _logger.LogWarning($"Документ ID: {documentId} не найден для обновления содержимого");
+                return false;
+            }
+
+            document.DocumentContent = content;
+
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                document.GeneratedFilePath = filePath;
+                _logger.LogDebug($"Обновлен путь к файлу: {filePath}");
+            }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation($"Содержимое документа ID: {documentId} успешно обновлено");
+
+            return true;
         }
     }
-
 }

@@ -61,6 +61,10 @@ namespace DocumentManager.Core.Interfaces
         /// Получить связанные документы
         /// </summary>
         Task<IEnumerable<Document>> GetRelatedDocumentsAsync(int documentId);
-    }
 
+        /// <summary>
+        /// Обновить содержимое документа
+        /// </summary>
+        Task<bool> UpdateDocumentContentAsync(int documentId, byte[] content, string filePath = null);
+    }
 }

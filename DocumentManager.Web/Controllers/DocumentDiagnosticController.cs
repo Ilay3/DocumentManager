@@ -1,6 +1,5 @@
 ﻿using DocumentManager.Core.Interfaces;
 using DocumentManager.Infrastructure.Services;
-using DocumentManager.Infrastructure.Utilities;
 using DocumentManager.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -122,14 +121,14 @@ namespace DocumentManager.Web.Controllers
                 var outputFileName = $"test_{Path.GetFileNameWithoutExtension(templatePath)}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(templatePath)}";
 
                 // Generate the document
-                var result = await _documentGenerationService.GenerateDocumentAsync(
+                var (filePath, documentContent) = await _documentGenerationService.GenerateDocumentAsync(
                     templatePath,
                     model.FieldValues,
                     outputFileName
                 );
 
                 // Prepare download link
-                var downloadPath = Path.GetRelativePath(_environment.WebRootPath, result);
+                var downloadPath = Path.GetRelativePath(_environment.WebRootPath, filePath);
                 model.GeneratedFilePath = $"/{downloadPath.Replace("\\", "/")}";
                 model.SuccessMessage = $"Документ успешно сгенерирован: {outputFileName}";
 
@@ -354,6 +353,42 @@ namespace DocumentManager.Web.Controllers
                 result.AppendLine("</div>");
                 result.AppendLine("</div>");
 
+                // Добавляем секцию для тестирования документа
+                result.AppendLine("<div class='card mb-4'>");
+                result.AppendLine("<div class='card-header'>Test Document Generation</div>");
+                result.AppendLine("<div class='card-body'>");
+                result.AppendLine("<form action='/diagnostics/documents/test-template-generation' method='post'>");
+                result.AppendLine($"<input type='hidden' name='templateId' value='{template.Id}' />");
+
+                // Добавляем поля для ввода значений плейсхолдеров
+                foreach (var field in fields)
+                {
+                    string defaultValue = field.DefaultValue ?? "";
+                    if (defaultValue == "" && field.FieldName == "FactoryNumber")
+                    {
+                        defaultValue = "TEST-" + DateTime.Now.Ticks.ToString().Substring(0, 6);
+                    }
+
+                    result.AppendLine("<div class='mb-3'>");
+                    result.AppendLine($"<label for='{field.FieldName}' class='form-label'>{field.FieldLabel}</label>");
+
+                    if (field.FieldType == "date")
+                    {
+                        result.AppendLine($"<input type='date' class='form-control' id='{field.FieldName}' name='fieldValues[{field.FieldName}]' value='{defaultValue}' />");
+                    }
+                    else
+                    {
+                        result.AppendLine($"<input type='text' class='form-control' id='{field.FieldName}' name='fieldValues[{field.FieldName}]' value='{defaultValue}' />");
+                    }
+
+                    result.AppendLine("</div>");
+                }
+
+                result.AppendLine("<button type='submit' class='btn btn-primary'>Test Generate Document</button>");
+                result.AppendLine("</form>");
+                result.AppendLine("</div>");
+                result.AppendLine("</div>");
+
                 result.AppendLine("<div class='mt-3'>");
                 result.AppendLine($"<a href='{Url.Action("Details", "Templates", new { id = template.Id })}' class='btn btn-primary me-2'>View Template Details</a>");
                 result.AppendLine($"<a href='{Url.Action("TestGeneration", "DocumentDiagnostics")}' class='btn btn-info'>Test Document Generation</a>");
@@ -365,6 +400,73 @@ namespace DocumentManager.Web.Controllers
             {
                 _logger.LogError(ex, "Error analyzing template");
                 return Content($"<div class='alert alert-danger'>Error analyzing template: {ex.Message}</div>", "text/html");
+            }
+        }
+
+        [HttpPost("test-template-generation")]
+        public async Task<IActionResult> TestTemplateGeneration(int templateId, Dictionary<string, string> fieldValues)
+        {
+            try
+            {
+                var template = await _templateService.GetTemplateByIdAsync(templateId);
+                if (template == null)
+                {
+                    return NotFound("Template not found");
+                }
+
+                var extension = Path.GetExtension(template.WordTemplatePath).ToLowerInvariant();
+                var outputFileName = $"test_{template.Code}_{DateTime.Now:yyyyMMddHHmmss}{extension}";
+
+                // Generate document
+                var (filePath, documentContent) = await _documentGenerationService.GenerateDocumentAsync(
+                    template.WordTemplatePath,
+                    fieldValues,
+                    outputFileName
+                );
+
+                // Create download link
+                var downloadPath = Path.GetRelativePath(_environment.WebRootPath, filePath);
+                var downloadUrl = $"/{downloadPath.Replace("\\", "/")}";
+
+                var result = new StringBuilder();
+                result.AppendLine("<h1>Test Document Generation Results</h1>");
+
+                result.AppendLine("<div class='card mb-4'>");
+                result.AppendLine("<div class='card-header'>Generation Information</div>");
+                result.AppendLine("<div class='card-body'>");
+                result.AppendLine("<dl class='row'>");
+                result.AppendLine($"<dt class='col-sm-3'>Template:</dt><dd class='col-sm-9'>{template.Name}</dd>");
+                result.AppendLine($"<dt class='col-sm-3'>Generated File:</dt><dd class='col-sm-9'>{outputFileName}</dd>");
+                result.AppendLine("</dl>");
+
+                result.AppendLine("<h4>Used Field Values:</h4>");
+                result.AppendLine("<table class='table'>");
+                result.AppendLine("<thead><tr><th>Field Name</th><th>Value</th></tr></thead>");
+                result.AppendLine("<tbody>");
+
+                foreach (var field in fieldValues)
+                {
+                    result.AppendLine("<tr>");
+                    result.AppendLine($"<td>{field.Key}</td>");
+                    result.AppendLine($"<td>{field.Value}</td>");
+                    result.AppendLine("</tr>");
+                }
+
+                result.AppendLine("</tbody>");
+                result.AppendLine("</table>");
+
+                result.AppendLine($"<p><a href='{downloadUrl}' class='btn btn-primary' target='_blank'>Download Generated Document</a></p>");
+                result.AppendLine($"<p><a href='{Url.Action("AnalyzeTemplate", new { id = templateId })}' class='btn btn-secondary'>Return to Template Analysis</a></p>");
+
+                result.AppendLine("</div>");
+                result.AppendLine("</div>");
+
+                return Content(result.ToString(), "text/html");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during test template generation");
+                return Content($"<div class='alert alert-danger'>Error generating test document: {ex.Message}</div>", "text/html");
             }
         }
     }

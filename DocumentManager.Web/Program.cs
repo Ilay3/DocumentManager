@@ -4,8 +4,12 @@ using DocumentManager.Infrastructure.Data;
 using DocumentManager.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Регистрируем поддержку кодировок для корректной работы с русскими символами
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -28,8 +32,7 @@ var jsonBasePath = builder.Configuration.GetValue<string>("JsonBasePath") ??
     "Templates/Json";
 
 var outputBasePath = builder.Configuration.GetValue<string>("OutputBasePath") ??
-    Path.Combine(contentRootPath, "Generated");
-
+    "Generated";
 
 var fullTemplatesBasePath = Path.IsPathRooted(templatesBasePath) ?
     templatesBasePath : Path.Combine(webRootPath, templatesBasePath);
@@ -37,6 +40,10 @@ var fullTemplatesBasePath = Path.IsPathRooted(templatesBasePath) ?
 var fullJsonBasePath = Path.IsPathRooted(jsonBasePath) ?
     jsonBasePath : Path.Combine(webRootPath, jsonBasePath);
 
+var fullOutputBasePath = Path.IsPathRooted(outputBasePath) ?
+    outputBasePath : Path.Combine(webRootPath, outputBasePath);
+
+// Настройка логирования
 builder.Services.AddLogging(logging =>
 {
     logging.AddConsole();
@@ -44,45 +51,24 @@ builder.Services.AddLogging(logging =>
     logging.SetMinimumLevel(LogLevel.Debug);
 });
 
-var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-logger.LogInformation($"WebRootPath: {webRootPath}");
-logger.LogInformation($"ContentRootPath: {contentRootPath}");
-logger.LogInformation($"TemplatesBasePath настройка: {templatesBasePath}");
-logger.LogInformation($"JsonBasePath настройка: {jsonBasePath}");
-logger.LogInformation($"Полный путь к шаблонам Word: {fullTemplatesBasePath}");
-logger.LogInformation($"Полный путь к JSON-файлам: {fullJsonBasePath}");
-
-
-// Регистрация сервисов с полными путями
-builder.Services.AddSingleton<IJsonSchemaService>(provider => new JsonSchemaService(fullJsonBasePath));
+// Регистрация сервисов
+builder.Services.AddSingleton<IJsonSchemaService>(provider =>
+    new JsonSchemaService(fullJsonBasePath));
 
 builder.Services.AddScoped<ITemplateService, TemplateService>();
-builder.Services.AddScoped<IDocumentService, DocumentService>();
-builder.Services.AddScoped<IDocumentGenerationService>(provider => {
-    var configuration = provider.GetRequiredService<IConfiguration>();
-    var documentService = provider.GetRequiredService<IDocumentService>();
-    var logger = provider.GetRequiredService<ILogger<DocumentGenerationService>>();
+builder.Services.AddScoped<IDocumentService>(provider =>
+    new DocumentService(
+        provider.GetRequiredService<ApplicationDbContext>(),
+        provider.GetRequiredService<ILogger<DocumentService>>()));
 
-    var templatesBasePath = Path.Combine(
-        builder.Environment.WebRootPath,
-        configuration.GetValue<string>("TemplatesBasePath") ?? "Templates/Word"
-    );
+builder.Services.AddScoped<IDocumentGenerationService>(provider =>
+    new DocumentGenerationService(
+        fullTemplatesBasePath,
+        fullOutputBasePath,
+        provider.GetRequiredService<IDocumentService>(),
+        provider.GetRequiredService<ILogger<DocumentGenerationService>>()));
 
-    var outputBasePath = Path.Combine(
-        builder.Environment.WebRootPath,
-        configuration.GetValue<string>("OutputBasePath") ?? "Generated"
-    );
-
-    return new DocumentGenerationService(
-        templatesBasePath,
-        outputBasePath,
-        documentService,
-        logger
-    );
-});
-
-
-// Регистрация сервиса инициализации данных с полными путями
+// Регистрация сервиса инициализации данных
 builder.Services.AddTransient<DataInitializer>(provider =>
     new DataInitializer(
         provider.GetRequiredService<ApplicationDbContext>(),
@@ -92,87 +78,24 @@ builder.Services.AddTransient<DataInitializer>(provider =>
         fullJsonBasePath,
         fullTemplatesBasePath));
 
-
 var app = builder.Build();
 
 // Логирование путей для диагностики
 app.Logger.LogInformation($"WebRootPath: {webRootPath}");
 app.Logger.LogInformation($"ContentRootPath: {contentRootPath}");
-app.Logger.LogInformation($"TemplatesBasePath: {templatesBasePath}");
-app.Logger.LogInformation($"JsonBasePath: {jsonBasePath}");
-app.Logger.LogInformation($"OutputBasePath: {outputBasePath}");
+app.Logger.LogInformation($"TemplatesBasePath: {templatesBasePath} -> {fullTemplatesBasePath}");
+app.Logger.LogInformation($"JsonBasePath: {jsonBasePath} -> {fullJsonBasePath}");
+app.Logger.LogInformation($"OutputBasePath: {outputBasePath} -> {fullOutputBasePath}");
 
-// Создание необходимых директорий с проверкой на пустые пути
-if (!string.IsNullOrEmpty(templatesBasePath))
-{
-    Directory.CreateDirectory(templatesBasePath);
-    app.Logger.LogInformation($"Создана директория: {templatesBasePath}");
-}
-else
-{
-    app.Logger.LogWarning("Путь к шаблонам Word пустой или null");
-}
+// Создание необходимых директорий
+Directory.CreateDirectory(fullTemplatesBasePath);
+app.Logger.LogInformation($"Создана/проверена директория шаблонов: {fullTemplatesBasePath}");
 
-if (!string.IsNullOrEmpty(jsonBasePath))
-{
-    Directory.CreateDirectory(jsonBasePath);
-    app.Logger.LogInformation($"Создана директория: {jsonBasePath}");
-}
-else
-{
-    app.Logger.LogWarning("Путь к JSON-файлам пустой или null");
-}
+Directory.CreateDirectory(fullJsonBasePath);
+app.Logger.LogInformation($"Создана/проверена директория JSON: {fullJsonBasePath}");
 
-if (!string.IsNullOrEmpty(outputBasePath))
-{
-    Directory.CreateDirectory(outputBasePath);
-    app.Logger.LogInformation($"Создана директория: {outputBasePath}");
-}
-else
-{
-    app.Logger.LogWarning("Путь к сгенерированным файлам пустой или null");
-}
-
-// Копирование шаблонов и JSON-файлов в рабочие директории, если они отсутствуют
-if (!string.IsNullOrEmpty(templatesBasePath) && !Directory.EnumerateFiles(templatesBasePath).Any())
-{
-    // Копирование шаблонов Word из папки приложения
-    var sourceWordTemplates = Path.Combine(contentRootPath, "Templates", "Word");
-    if (Directory.Exists(sourceWordTemplates))
-    {
-        foreach (var file in Directory.GetFiles(sourceWordTemplates, "*.doc*", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(sourceWordTemplates, file);
-            var targetPath = Path.Combine(templatesBasePath, relativePath);
-
-            // Создаем директории при необходимости
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath));
-
-            File.Copy(file, targetPath, true);
-            app.Logger.LogInformation($"Копирование шаблона Word: {targetPath}");
-        }
-    }
-}
-
-if (!string.IsNullOrEmpty(jsonBasePath) && !Directory.EnumerateFiles(jsonBasePath).Any())
-{
-    // Копирование JSON-файлов из папки приложения
-    var sourceJsonFiles = Path.Combine(contentRootPath, "Templates", "Json");
-    if (Directory.Exists(sourceJsonFiles))
-    {
-        foreach (var file in Directory.GetFiles(sourceJsonFiles, "*.json", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(sourceJsonFiles, file);
-            var targetPath = Path.Combine(jsonBasePath, relativePath);
-
-            // Создаем директории при необходимости
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath));
-
-            File.Copy(file, targetPath, true);
-            app.Logger.LogInformation($"Копирование JSON-файла: {targetPath}");
-        }
-    }
-}
+Directory.CreateDirectory(fullOutputBasePath);
+app.Logger.LogInformation($"Создана/проверена директория вывода: {fullOutputBasePath}");
 
 // Инициализация базы данных
 using (var scope = app.Services.CreateScope())

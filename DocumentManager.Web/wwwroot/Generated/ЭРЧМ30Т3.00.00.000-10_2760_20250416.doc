@@ -1,0 +1,24 @@
+ШАБЛОН ДОКУМЕНТА
+================
+
+SystemDesignation: ЭРЧМ30Т3.00.00.000-10
+ReleaseDate: 2025-04-16
+FactoryNumber: 2760
+Variant: ЭРЧМ30Т3-10
+PowerSupplySerialNumber: 1
+PressureConverterSerialNumber: 1
+ControllerSerialNumber_10: 1
+ExecutiveDeviceSerialNumber_10: 1
+FrequencyConverterSerialNumber_10: 1
+ControllerSerialNumber_10_01: 1
+FrequencyConverterSerialNumber_10_01_a: 1
+FrequencyConverterSerialNumber_10_01_b: 1
+ExecutiveDeviceSerialNumber_10_01: 1
+PressureSensorType_16: гидравлический
+PressureSensorType_2_5: гидравлический
+OtkPosition: Инженер ОТК
+OtkName: Иванов В.В.
+PackagingDate: 2025-04-16
+OtkAcceptanceName: Попов Д.Ю.
+AcceptanceDate: 2025-04-16
+AcceptanceDocDesignation: ТУ 3129-036-24428398-01

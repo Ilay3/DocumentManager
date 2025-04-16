@@ -14,17 +14,16 @@ namespace DocumentManager.Core.Interfaces
         /// <summary>
         /// Сгенерировать документ Word на основе шаблона и значений полей
         /// </summary>
-        Task<string> GenerateDocumentAsync(int documentId);
+        Task<(string FilePath, byte[] Content)> GenerateDocumentAsync(int documentId);
 
         /// <summary>
         /// Сгенерировать документ Word на основе шаблона и значений полей
         /// </summary>
-        Task<string> GenerateDocumentAsync(string templatePath, Dictionary<string, string> fieldValues, string outputFileName);
+        Task<(string FilePath, byte[] Content)> GenerateDocumentAsync(string templatePath, Dictionary<string, string> fieldValues, string outputFileName);
 
         /// <summary>
         /// Сгенерировать связанные документы (например, паспорт и упаковочные листы)
         /// </summary>
-        Task<IEnumerable<string>> GenerateRelatedDocumentsAsync(int documentId);
+        Task<IEnumerable<(int DocumentId, string FilePath, byte[] Content)>> GenerateRelatedDocumentsAsync(int documentId);
     }
-
 }

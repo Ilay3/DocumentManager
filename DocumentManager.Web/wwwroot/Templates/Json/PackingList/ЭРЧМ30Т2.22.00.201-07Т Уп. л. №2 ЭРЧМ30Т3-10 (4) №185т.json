@@ -1,7 +1,7 @@
-﻿{
+{
   "id": "PackingList_201_07T",
   "name": "\u0423\u043F\u0430\u043A\u043E\u0432\u043E\u0447\u043D\u044B\u0439 \u043B\u0438\u0441\u0442 \u21162 \u042D\u0420\u0427\u041C30\u04222.22.00.201-07\u0422",
-  "templatePath": "Templates/PackingList/\u042D\u0420\u0427\u041C30\u04222.22.00.201-07\u0422 \u0423\u043F. \u043B. \u21162 \u042D\u0420\u0427\u041C30\u04223-10 (4) \u2116185\u0442.doc",
+  "templatePath": "Templates/Word/PackingList/\u042D\u0420\u0427\u041C30\u04222.22.00.201-07\u0422 \u0423\u043F. \u043B. \u21162 \u042D\u0420\u0427\u041C30\u04223-10 (4) \u2116185\u0442.doc",
   "fields": [
     {
       "fieldName": "PackingListNumber",
