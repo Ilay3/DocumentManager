@@ -58,11 +58,29 @@ builder.Services.AddSingleton<IJsonSchemaService>(provider => new JsonSchemaServ
 
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
-builder.Services.AddScoped<IDocumentGenerationService>(provider =>
-    new DocumentGenerationService(
-        fullTemplatesBasePath,
+builder.Services.AddScoped<IDocumentGenerationService>(provider => {
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    var documentService = provider.GetRequiredService<IDocumentService>();
+    var logger = provider.GetRequiredService<ILogger<DocumentGenerationService>>();
+
+    var templatesBasePath = Path.Combine(
+        builder.Environment.WebRootPath,
+        configuration.GetValue<string>("TemplatesBasePath") ?? "Templates/Word"
+    );
+
+    var outputBasePath = Path.Combine(
+        builder.Environment.WebRootPath,
+        configuration.GetValue<string>("OutputBasePath") ?? "Generated"
+    );
+
+    return new DocumentGenerationService(
+        templatesBasePath,
         outputBasePath,
-        provider.GetRequiredService<IDocumentService>()));
+        documentService,
+        logger
+    );
+});
+
 
 // Регистрация сервиса инициализации данных с полными путями
 builder.Services.AddTransient<DataInitializer>(provider =>

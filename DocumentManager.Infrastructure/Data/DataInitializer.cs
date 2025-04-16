@@ -1,5 +1,4 @@
-﻿// DocumentManager.Infrastructure/Data/DataInitializer.cs
-using DocumentManager.Core.Entities;
+﻿using DocumentManager.Core.Entities;
 using DocumentManager.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

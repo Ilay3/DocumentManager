@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35303.130
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentManager.Web", "DocumentManager.Web\DocumentManager.Web.csproj", "{D55F6F9F-AD23-40A9-A42B-DA2E27670975}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DocumentManager.Web", "DocumentManager.Web\DocumentManager.Web.csproj", "{D55F6F9F-AD23-40A9-A42B-DA2E27670975}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentManager.Core", "DocumentManager.Core\DocumentManager.Core.csproj", "{90D77BA0-6359-4831-9551-AE5DB4364FF4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DocumentManager.Core", "DocumentManager.Core\DocumentManager.Core.csproj", "{90D77BA0-6359-4831-9551-AE5DB4364FF4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentManager.Infrastructure", "DocumentManager.Infrastructure\DocumentManager.Infrastructure.csproj", "{0930BFA8-ADEE-41EA-B517-99F702EF3E2C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DocumentManager.Infrastructure", "DocumentManager.Infrastructure\DocumentManager.Infrastructure.csproj", "{0930BFA8-ADEE-41EA-B517-99F702EF3E2C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
