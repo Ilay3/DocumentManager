@@ -5,11 +5,10 @@ using DocumentManager.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 using System.Text;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Регистрируем поддержку кодировок для корректной работы с русскими символами
-Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -67,6 +66,15 @@ builder.Services.AddScoped<IDocumentGenerationService>(provider =>
         fullOutputBasePath,
         provider.GetRequiredService<IDocumentService>(),
         provider.GetRequiredService<ILogger<DocumentGenerationService>>()));
+
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.WriteIndented = true;
+        options.JsonSerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+    });
+
 
 // Регистрация сервиса инициализации данных
 builder.Services.AddTransient<DataInitializer>(provider =>

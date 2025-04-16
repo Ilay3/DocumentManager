@@ -23,9 +23,5 @@
     <ProjectReference Include="..\DocumentManager.Infrastructure\DocumentManager.Infrastructure.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Generated\" />
-    <Folder Include="wwwroot\Generated\" />
-  </ItemGroup>
 
 </Project>

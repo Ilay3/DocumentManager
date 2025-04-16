@@ -67,7 +67,8 @@ namespace DocumentManager.Infrastructure.Migrations
                     FactoryNumber = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    GeneratedFilePath = table.Column<string>(type: "text", nullable: true)
+                    GeneratedFilePath = table.Column<string>(type: "text", nullable: true),
+                    DocumentContent = table.Column<byte[]>(type: "bytea", nullable: true)
                 },
                 constraints: table =>
                 {

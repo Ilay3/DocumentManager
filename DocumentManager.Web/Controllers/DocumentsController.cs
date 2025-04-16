@@ -370,8 +370,10 @@ namespace DocumentManager.Web.Controllers
                 var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
 
                 // Обновляем путь к сгенерированному файлу и содержимое
-                document.GeneratedFilePath = filePath;
                 await _documentService.UpdateDocumentContentAsync(id, content, filePath);
+
+                // Перезагружаем документ чтобы получить обновленные данные
+                document = await _documentService.GetDocumentByIdAsync(id);
 
                 TempData["SuccessMessage"] = "Документ успешно сгенерирован";
                 return RedirectToAction(nameof(Details), new { id });
@@ -399,7 +401,6 @@ namespace DocumentManager.Web.Controllers
 
                 byte[] fileBytes;
                 string contentType;
-                string fileName;
 
                 // Приоритет: 1) DocumentContent из БД, 2) Файл на диске, 3) Генерация нового
                 if (document.DocumentContent != null && document.DocumentContent.Length > 0)
@@ -417,8 +418,17 @@ namespace DocumentManager.Web.Controllers
                     _logger.LogInformation($"Генерация документа ID {id} для скачивания");
                     var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
                     fileBytes = content;
-                    document.GeneratedFilePath = filePath;
+
+                    // Обновляем документ в базе данных
                     await _documentService.UpdateDocumentContentAsync(id, content, filePath);
+                }
+
+                // Проверка, что мы действительно получили содержимое файла
+                if (fileBytes == null || fileBytes.Length == 0)
+                {
+                    _logger.LogError($"Содержимое документа пустое для ID {id}");
+                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа. Пожалуйста, попробуйте сгенерировать документ заново.";
+                    return RedirectToAction(nameof(Details), new { id });
                 }
 
                 // Определяем тип контента и имя файла
@@ -433,10 +443,24 @@ namespace DocumentManager.Web.Controllers
                     contentType = "application/msword";
                 }
 
-                fileName = $"{document.DocumentTemplate.Code}_{document.FactoryNumber}{extension}";
+                // Создаем имя файла с транслитерацией русских символов
+                string originalFileName = $"{document.DocumentTemplate.Code}_{document.FactoryNumber}";
+                string transliteratedFileName = TransliterationHelper.Transliterate(originalFileName);
 
-                _logger.LogInformation($"Отправка файла клиенту: {fileName}");
-                return File(fileBytes, contentType, fileName);
+                // Заменяем пробелы и другие небезопасные символы на подчеркивания
+                string safeFileName = transliteratedFileName
+                    .Replace(" ", "_")
+                    .Replace(",", "_")
+                    .Replace("\"", "_")
+                    .Replace("'", "_")
+                    .Replace(":", "_")
+                    .Replace(";", "_")
+                    .Replace("?", "_") + extension;
+
+                _logger.LogInformation($"Отправка файла клиенту: {safeFileName}, размер: {fileBytes.Length} байт");
+
+                // Возвращаем файл с безопасным именем
+                return File(fileBytes, contentType, safeFileName);
             }
             catch (Exception ex)
             {
@@ -445,6 +469,131 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
+
+        public static class TransliterationHelper
+        {
+            private static readonly Dictionary<char, string> transliterationMap = new Dictionary<char, string>
+    {
+        {'а', "a"}, {'б', "b"}, {'в', "v"}, {'г', "g"}, {'д', "d"}, {'е', "e"}, {'ё', "yo"},
+        {'ж', "zh"}, {'з', "z"}, {'и', "i"}, {'й', "y"}, {'к', "k"}, {'л', "l"}, {'м', "m"},
+        {'н', "n"}, {'о', "o"}, {'п', "p"}, {'р', "r"}, {'с', "s"}, {'т', "t"}, {'у', "u"},
+        {'ф', "f"}, {'х', "kh"}, {'ц', "ts"}, {'ч', "ch"}, {'ш', "sh"}, {'щ', "sch"}, {'ъ', ""},
+        {'ы', "y"}, {'ь', ""}, {'э', "e"}, {'ю', "yu"}, {'я', "ya"},
+        {'А', "A"}, {'Б', "B"}, {'В', "V"}, {'Г', "G"}, {'Д', "D"}, {'Е', "E"}, {'Ё', "Yo"},
+        {'Ж', "Zh"}, {'З', "Z"}, {'И', "I"}, {'Й', "Y"}, {'К', "K"}, {'Л', "L"}, {'М', "M"},
+        {'Н', "N"}, {'О', "O"}, {'П', "P"}, {'Р', "R"}, {'С', "S"}, {'Т', "T"}, {'У', "U"},
+        {'Ф', "F"}, {'Х', "Kh"}, {'Ц', "Ts"}, {'Ч', "Ch"}, {'Ш', "Sh"}, {'Щ', "Sch"}, {'Ъ', ""},
+        {'Ы', "Y"}, {'Ь', ""}, {'Э', "E"}, {'Ю', "Yu"}, {'Я', "Ya"}
+    };
+
+            /// <summary>
+            /// Транслитерирует строку с русского на английский
+            /// </summary>
+            public static string Transliterate(string text)
+            {
+                if (string.IsNullOrEmpty(text))
+                    return text;
+
+                var result = new System.Text.StringBuilder();
+
+                foreach (char c in text)
+                {
+                    // Если символ есть в словаре транслитерации, используем его
+                    if (transliterationMap.TryGetValue(c, out string translit))
+                    {
+                        result.Append(translit);
+                    }
+                    // Для латинских букв, цифр и некоторых символов оставляем как есть
+                    else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                             c == ' ' || c == '_' || c == '-' || c == '.')
+                    {
+                        result.Append(c);
+                    }
+                    // Заменяем другие символы на подчеркивание
+                    else
+                    {
+                        result.Append('_');
+                    }
+                }
+
+                return result.ToString();
+            }
+        }
+
+        public async Task<IActionResult> Print(int id)
+        {
+            try
+            {
+                var document = await _documentService.GetDocumentByIdAsync(id);
+
+                if (document == null)
+                {
+                    _logger.LogWarning($"Документ с ID {id} не найден");
+                    return NotFound();
+                }
+
+                byte[] fileBytes;
+                string contentType;
+
+                // Приоритет: 1) DocumentContent из БД, 2) Файл на диске, 3) Генерация нового
+                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
+                {
+                    _logger.LogInformation($"Печать документа ID {id} из содержимого в БД");
+                    fileBytes = document.DocumentContent;
+                }
+                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
+                {
+                    _logger.LogInformation($"Печать документа ID {id} из файла на диске");
+                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
+                }
+                else
+                {
+                    _logger.LogInformation($"Генерация документа ID {id} для печати");
+                    var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
+                    fileBytes = content;
+
+                    // Обновляем документ в базе данных
+                    await _documentService.UpdateDocumentContentAsync(id, content, filePath);
+                }
+
+                // Проверка, что мы действительно получили содержимое файла
+                if (fileBytes == null || fileBytes.Length == 0)
+                {
+                    _logger.LogError($"Содержимое документа пустое для ID {id}");
+                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа. Пожалуйста, попробуйте сгенерировать документ заново.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                // Определяем тип контента
+                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
+
+                if (extension == ".docx")
+                {
+                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                }
+                else
+                {
+                    contentType = "application/msword";
+                }
+
+                // Создаем безопасное имя файла только из латинских букв, цифр и безопасных символов
+                string safeFileName = $"document_{id}_{DateTime.Now:yyyyMMdd}{extension}";
+
+                _logger.LogInformation($"Отправка файла на печать: {safeFileName}, размер: {fileBytes.Length} байт");
+
+                // Установка заголовка для открытия файла в браузере вместо скачивания
+                Response.Headers.Add("Content-Disposition", "inline");
+
+                return File(fileBytes, contentType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при печати документа ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка при печати документа: {ex.Message}";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
 
         // GET: Documents/Delete/5
         public async Task<IActionResult> Delete(int id)

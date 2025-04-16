@@ -3,10 +3,11 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xceed.Words.NET;
-using System.Linq;
 
 namespace DocumentManager.Infrastructure.Services
 {
@@ -52,8 +53,8 @@ namespace DocumentManager.Infrastructure.Services
         public async Task<(string FilePath, byte[] Content)> GenerateDocumentAsync(string templatePath, Dictionary<string, string> fieldValues, string outputFileName)
         {
             // Проверяем существование шаблона
-            var fullTemplatePath = Path.IsPathRooted(templatePath) 
-                ? templatePath 
+            var fullTemplatePath = Path.IsPathRooted(templatePath)
+                ? templatePath
                 : Path.Combine(_templatesBasePath, templatePath);
 
             _logger.LogInformation($"Генерация документа из шаблона: {fullTemplatePath}");
@@ -62,12 +63,12 @@ namespace DocumentManager.Infrastructure.Services
             if (!File.Exists(fullTemplatePath))
             {
                 _logger.LogError($"Файл шаблона не найден: {fullTemplatePath}");
-                
+
                 // Попробуем найти файл в других расширениях
                 var directory = Path.GetDirectoryName(fullTemplatePath);
                 var fileNameWithoutExt = Path.GetFileNameWithoutExtension(fullTemplatePath);
                 var possibleFiles = Directory.GetFiles(directory, $"{fileNameWithoutExt}.*").ToList();
-                
+
                 if (possibleFiles.Any())
                 {
                     _logger.LogInformation($"Найдены альтернативные файлы: {string.Join(", ", possibleFiles)}");
@@ -82,22 +83,18 @@ namespace DocumentManager.Infrastructure.Services
 
             var extension = Path.GetExtension(fullTemplatePath).ToLowerInvariant();
             byte[] documentContent;
-            
-            // Handle different file formats
-            if (extension == ".doc")
+
+            // Выбираем метод обработки в зависимости от расширения файла
+            if (extension == ".docx")
             {
-                _logger.LogInformation("Обработка .doc файла с использованием бинарного подхода");
-                documentContent = ProcessDocFile(fullTemplatePath, fieldValues);
-            }
-            else if (extension == ".docx")
-            {
-                _logger.LogInformation("Обработка .docx файла с использованием библиотеки DocX");
-                documentContent = await ProcessDocxFile(fullTemplatePath, fieldValues);
+                _logger.LogInformation("Обработка файла DOCX");
+                documentContent = await ProcessDocxFileImproved(fullTemplatePath, fieldValues);
             }
             else
             {
-                _logger.LogError($"Неподдерживаемый формат файла: {extension}");
-                throw new NotSupportedException($"Неподдерживаемый формат файла: {extension}");
+                _logger.LogInformation("Обработка файла DOC");
+                var docHandler = new DocBinaryTemplateHandler(_logger);
+                documentContent = docHandler.ProcessTemplate(fullTemplatePath, fieldValues);
             }
 
             // Create output directory if it doesn't exist
@@ -115,108 +112,113 @@ namespace DocumentManager.Infrastructure.Services
             return (outputPath, documentContent);
         }
 
-        private byte[] ProcessDocFile(string templatePath, Dictionary<string, string> fieldValues)
+        private async Task<byte[]> ProcessDocxFileImproved(string templatePath, Dictionary<string, string> fieldValues)
         {
+            // Создаем временную копию шаблона
+            var tempPath = Path.GetTempFileName();
+            File.Delete(tempPath); // Удаляем файл, который создал GetTempFileName
+            tempPath = Path.ChangeExtension(tempPath, ".docx"); // Добавляем расширение .docx
+
             try
             {
-                _logger.LogInformation($"Обработка .doc файла: {templatePath}");
-                var docHandler = new DocBinaryTemplateHandler(_logger);
-                
-                // Найдем все плейсхолдеры в шаблоне для диагностики
-                var placeholders = docHandler.FindPlaceholders(templatePath);
-                _logger.LogInformation($"Найдено {placeholders.Count} плейсхолдеров в шаблоне");
-                
-                foreach (var ph in placeholders)
-                {
-                    if (fieldValues.ContainsKey(ph))
-                    {
-                        _logger.LogInformation($"Плейсхолдер {ph} будет заменен на значение: {fieldValues[ph]}");
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Плейсхолдер {ph} найден в шаблоне, но значение для него не предоставлено");
-                    }
-                }
-                
-                return docHandler.ProcessTemplate(templatePath, fieldValues);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при обработке .doc файла: {ex.Message}");
-                throw;
-            }
-        }
+                _logger.LogInformation($"Создание временной копии шаблона: {tempPath}");
+                File.Copy(templatePath, tempPath);
 
-        private async Task<byte[]> ProcessDocxFile(string templatePath, Dictionary<string, string> fieldValues)
-        {
-            // For .docx files we need to use a temporary file
-            var tempFilePath = Path.GetTempFileName();
-            try
-            {
-                _logger.LogInformation($"Обработка .docx файла: {templatePath}");
-                _logger.LogInformation($"Используем временный файл: {tempFilePath}");
-                
-                // Copy template to temporary location to avoid modifying the original
-                File.Copy(templatePath, tempFilePath, true);
+                // Заменяем плейсхолдеры в документе
+                _logger.LogInformation("Замена плейсхолдеров в документе");
 
-                // Use DocX to replace placeholders
-                using (var document = DocX.Load(tempFilePath))
+                using (var doc = DocX.Load(tempPath))
                 {
-                    // Для диагностики - найдем все плейсхолдеры в тексте документа
-                    var text = document.Text;
-                    var regex = new System.Text.RegularExpressions.Regex(@"\{\{([^}]+)\}\}");
-                    var matches = regex.Matches(text);
-                    var placeholders = matches.Cast<System.Text.RegularExpressions.Match>()
-                        .Where(m => m.Groups.Count > 1)
-                        .Select(m => m.Groups[1].Value)
-                        .Distinct()
-                        .ToList();
-                    
-                    _logger.LogInformation($"Найдено {placeholders.Count} плейсхолдеров в .docx файле: {string.Join(", ", placeholders)}");
-                    
-                    foreach (var field in fieldValues)
+                    _logger.LogInformation($"Документ загружен, количество параграфов: {doc.Paragraphs.Count}");
+
+                    // Простой способ логирования содержимого для отладки
+                    var documentText = doc.Text;
+                    _logger.LogInformation($"Текст документа (первые 200 символов): {(documentText.Length > 200 ? documentText.Substring(0, 200) : documentText)}");
+
+                    // Поиск всех плейсхолдеров в документе с помощью регулярных выражений
+                    var placeholderRegex = new Regex(@"\{\{([^}]+)\}\}");
+                    var matches = placeholderRegex.Matches(documentText);
+
+                    _logger.LogInformation($"Найдено {matches.Count} плейсхолдеров в документе");
+
+                    foreach (Match match in matches)
                     {
-                        // Replace placeholders of the form {{FieldName}}
-                        string placeholder = $"{{{{{field.Key}}}}}";
-                        string value = field.Value ?? string.Empty;
-                        
-                        if (text.Contains(placeholder))
+                        if (match.Groups.Count > 1)
                         {
-                            _logger.LogInformation($"Замена '{placeholder}' на '{value}'");
-                            document.ReplaceText(placeholder, value);
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"Плейсхолдер '{placeholder}' не найден в документе");
+                            var placeholderName = match.Groups[1].Value;
+                            _logger.LogInformation($"Найден плейсхолдер: {placeholderName}");
+
+                            if (fieldValues.TryGetValue(placeholderName, out var value))
+                            {
+                                _logger.LogInformation($"Заменяем плейсхолдер {{{{${placeholderName}}}}} на '{value}'");
+
+                                // Заменяем плейсхолдер во всех параграфах
+                                foreach (var paragraph in doc.Paragraphs)
+                                {
+                                    if (paragraph.Text.Contains($"{{{{{placeholderName}}}}}"))
+                                    {
+                                        // Обнаружен плейсхолдер в параграфе
+                                        _logger.LogInformation($"Заменяем плейсхолдер в параграфе: {paragraph.Text}");
+                                        paragraph.ReplaceText($"{{{{{placeholderName}}}}}", value ?? string.Empty);
+                                    }
+                                }
+
+                                // Также ищем и заменяем в таблицах
+                                foreach (var table in doc.Tables)
+                                {
+                                    foreach (var row in table.Rows)
+                                    {
+                                        foreach (var cell in row.Cells)
+                                        {
+                                            foreach (var paragraph in cell.Paragraphs)
+                                            {
+                                                if (paragraph.Text.Contains($"{{{{{placeholderName}}}}}"))
+                                                {
+                                                    _logger.LogInformation($"Заменяем плейсхолдер в ячейке таблицы: {paragraph.Text}");
+                                                    paragraph.ReplaceText($"{{{{{placeholderName}}}}}", value ?? string.Empty);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"Значение для плейсхолдера '{placeholderName}' не найдено в словаре");
+                            }
                         }
                     }
 
-                    document.Save();
+                    // Сохраняем изменения
+                    _logger.LogInformation("Сохранение изменений в документе");
+                    doc.Save();
                 }
 
-                // Read the processed document into memory
-                var result = await File.ReadAllBytesAsync(tempFilePath);
+                // Читаем результат
+                _logger.LogInformation("Чтение результата");
+                var result = await File.ReadAllBytesAsync(tempPath);
                 _logger.LogInformation($"Документ успешно обработан, размер: {result.Length} байт");
+
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Ошибка при обработке .docx файла: {ex.Message}");
+                _logger.LogError(ex, $"Ошибка при обработке DOCX файла: {ex.Message}");
                 throw;
             }
             finally
             {
-                // Always clean up the temporary file
-                if (File.Exists(tempFilePath))
+                // Удаляем временный файл
+                if (File.Exists(tempPath))
                 {
                     try
                     {
-                        File.Delete(tempFilePath);
-                        _logger.LogInformation($"Временный файл удален: {tempFilePath}");
+                        File.Delete(tempPath);
+                        _logger.LogInformation($"Временный файл удален: {tempPath}");
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, $"Не удалось удалить временный файл: {tempFilePath}");
+                        _logger.LogWarning($"Не удалось удалить временный файл: {ex.Message}");
                     }
                 }
             }
@@ -232,7 +234,7 @@ namespace DocumentManager.Infrastructure.Services
             }
 
             var result = new List<(int DocumentId, string FilePath, byte[] Content)>();
-            
+
             // Generate main document
             try
             {
@@ -248,11 +250,11 @@ namespace DocumentManager.Infrastructure.Services
                 _logger.LogError(ex, $"Ошибка генерации основного документа ID {documentId}: {ex.Message}");
                 // Continue with related documents even if main fails
             }
-            
+
             // Generate related documents
             var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(documentId);
             _logger.LogInformation($"Найдено {relatedDocuments.Count()} связанных документов");
-            
+
             foreach (var relatedDocument in relatedDocuments)
             {
                 try

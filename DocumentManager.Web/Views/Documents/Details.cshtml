@@ -83,6 +83,8 @@
     @if (!string.IsNullOrWhiteSpace(Model.GeneratedFilePath))
     {
         <a asp-action="Download" asp-route-id="@Model.Id" class="btn btn-primary">Скачать документ</a>
+        <a asp-action="Print" asp-route-id="@Model.Id" class="btn btn-info" target="_blank">Печать документа</a>
+
     }
     <a asp-action="Index" class="btn btn-secondary">Назад к списку</a>
 </div>
