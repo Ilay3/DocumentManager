@@ -32,11 +32,11 @@
       "defaultValue": "{{ControllerSerialNumber_10}}"
     },
     {
-      "fieldName": "ControllerSerialNumber_10",
+      "fieldName": "FrequencyConverterSerialNumber_10_01_a",
       "fieldLabel": "Преобразователь давления 16 бар — №",
       "fieldType": "text",
       "isRequired": true,
-      "defaultValue": "{{ControllerSerialNumber_10}}"
+      "defaultValue": "{{FrequencyConverterSerialNumber_10_01_a}}"
     },
     {
       "fieldName": "ExecutiveDeviceSerialNumber_10_01",
