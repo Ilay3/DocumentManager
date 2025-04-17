@@ -1,4 +1,6 @@
 ﻿using DocumentManager.Core.Entities;
+using DocumentManager.Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +17,7 @@ namespace DocumentManager.Core.Interfaces
         /// <summary>
         /// Получить все шаблоны документов
         /// </summary>
-        Task<IEnumerable<DocumentTemplate>> GetAllTemplatesAsync();
+        Task<IEnumerable<DocumentTemplate>> GetAllTemplatesAsync(bool includeInactive = false);
 
         /// <summary>
         /// Получить шаблон документа по идентификатору
@@ -52,5 +54,4 @@ namespace DocumentManager.Core.Interfaces
         /// </summary>
         Task<bool> DeleteTemplateAsync(int id);
     }
-
 }

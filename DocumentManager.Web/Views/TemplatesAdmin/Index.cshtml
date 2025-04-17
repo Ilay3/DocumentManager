@@ -1,0 +1,113 @@
+﻿@model DocumentManager.Web.Models.TemplatesAdminViewModel
+
+@{
+    ViewData["Title"] = "Управление шаблонами";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Управление шаблонами</h1>
+    <div>
+        <a asp-action="Sync" class="btn btn-success">
+            <i class="bi bi-arrow-repeat"></i> Синхронизировать шаблоны
+        </a>
+        <a asp-action="Files" class="btn btn-primary">
+            <i class="bi bi-folder"></i> Файлы шаблонов
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <form asp-action="Index" method="get" class="row g-3">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <input type="text" name="filter" value="@Model.Filter" class="form-control" placeholder="Поиск по имени или коду шаблона...">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="bi bi-search"></i> Поиск
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                @if (!string.IsNullOrEmpty(Model.Filter))
+                {
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Сбросить фильтр
+                    </a>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Код</th>
+                <th>Наименование</th>
+                <th>Тип</th>
+                <th>Шаблон Word</th>
+                <th>JSON-схема</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var template in Model.Templates)
+            {
+                <tr>
+                    <td>@template.Code</td>
+                    <td>@template.Name</td>
+                    <td>@template.Type</td>
+                    <td class="text-truncate" style="max-width: 200px;" title="@template.WordTemplatePath">
+                        @(template.WordTemplatePath ?? "-")
+                    </td>
+                    <td class="text-truncate" style="max-width: 200px;" title="@template.JsonSchemaPath">
+                        @(template.JsonSchemaPath ?? "-")
+                    </td>
+                    <td>
+                        @if (template.IsActive)
+                        {
+                            <span class="badge bg-success">Активен</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Отключен</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <a asp-controller="Templates" asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-info">
+                                <i class="bi bi-info-circle"></i> Подробности
+                            </a>
+                            @if (!template.IsActive)
+                            {
+                                <a href="#" class="btn btn-sm btn-outline-success" onclick="activateTemplate(@template.Id)">
+                                    <i class="bi bi-check-circle"></i> Активировать
+                                </a>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Templates.Any())
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> Шаблоны не найдены. Попробуйте изменить фильтр или выполнить синхронизацию шаблонов.
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function activateTemplate(id) {
+            if (confirm('Вы уверены, что хотите активировать этот шаблон?')) {
+                window.location.href = '/TemplatesAdmin/Activate/' + id;
+            }
+        }
+    </script>
+}
+

@@ -1,0 +1,158 @@
+﻿@* DocumentManager.Web/Views/TemplatesAdmin/Files.cshtml *@
+@model DocumentManager.Web.Models.TemplateFilesViewModel
+
+@{
+    ViewData["Title"] = "Файлы шаблонов";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Файлы шаблонов</h1>
+    <div>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к шаблонам
+        </a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-word"></i> Шаблоны Word
+                </h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="UploadWordTemplate" method="post" enctype="multipart/form-data" class="mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <input type="file" name="file" class="form-control" accept=".doc,.docx" required />
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" name="subFolder" class="form-control" placeholder="Папка (опционально)" />
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-upload"></i> Загрузить шаблон Word
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Имя файла</th>
+                                <th>Путь</th>
+                                <th>Размер</th>
+                                <th>Изменен</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var file in Model.WordTemplates)
+                            {
+                                <tr>
+                                    <td>@file.Name</td>
+                                    <td class="text-truncate" style="max-width: 150px;" title="@file.Path">@file.Path</td>
+                                    <td>@(file.Size / 1024) КБ</td>
+                                    <td>@file.LastModified.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            @if (System.IO.Path.GetExtension(file.Name).ToLowerInvariant() != ".docx")
+                                            {
+                                                <a asp-action="ViewFile" asp-route-type="word" asp-route-path="@file.Path" class="btn btn-sm btn-outline-info">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                            }
+                                            <a asp-action="DeleteFile" asp-route-type="word" asp-route-path="@file.Path" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+
+                @if (!Model.WordTemplates.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Шаблоны Word не найдены. Загрузите шаблоны с помощью формы выше.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-code"></i> JSON-схемы
+                </h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="UploadJsonSchema" method="post" enctype="multipart/form-data" class="mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <input type="file" name="file" class="form-control" accept=".json" required />
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" name="subFolder" class="form-control" placeholder="Папка (опционально)" />
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-upload"></i> Загрузить JSON-схему
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Имя файла</th>
+                                <th>Идентификатор</th>
+                                <th>Описание</th>
+                                <th>Изменен</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var file in Model.JsonSchemas)
+                            {
+                                <tr>
+                                    <td class="text-truncate" style="max-width: 150px;" title="@file.Path">@file.Path</td>
+                                    <td>@file.Id</td>
+                                    <td class="text-truncate" style="max-width: 150px;" title="@file.Description">@file.Description</td>
+                                    <td>@file.LastModified.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@file.Path" class="btn btn-sm btn-outline-info">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a asp-action="DeleteFile" asp-route-type="json" asp-route-path="@file.Path" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (!Model.JsonSchemas.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> JSON-схемы не найдены. Загрузите схемы с помощью формы выше.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

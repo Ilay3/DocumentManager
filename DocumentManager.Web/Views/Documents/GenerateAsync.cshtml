@@ -1,0 +1,124 @@
+﻿@* DocumentManager.Web/Views/Documents/GenerateAsync.cshtml *@
+@model DocumentManager.Web.Models.GenerateProgressViewModel
+
+@{
+    ViewData["Title"] = "Генерация документа";
+}
+
+<div class="card">
+    <div class="card-header">
+        <h4>Генерация документа</h4>
+    </div>
+    <div class="card-body">
+        <div class="text-center mb-4">
+            <h5 id="status-text">Инициализация...</h5>
+        </div>
+
+        <div class="progress mb-4">
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+        </div>
+
+        <div id="error-container" class="alert alert-danger d-none">
+            <h5>Произошла ошибка при генерации документа</h5>
+            <p id="error-message"></p>
+        </div>
+
+        <div id="success-container" class="alert alert-success d-none">
+            <h5>Документ успешно сгенерирован</h5>
+            <p>Документ готов к скачиванию.</p>
+        </div>
+
+        <div class="text-center mt-4">
+            <a id="download-btn" href="@Url.Action("Download", new { id = Model.DocumentId })" class="btn btn-primary btn-lg d-none">
+                <i class="bi bi-download"></i> Скачать документ
+            </a>
+            <a id="back-btn" href="@Url.Action("Details", new { id = Model.DocumentId })" class="btn btn-secondary btn-lg">
+                <i class="bi bi-arrow-left"></i> Вернуться к документу
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Функция для обновления прогресса
+        function updateProgress() {
+            fetch('/api/progress/@Model.OperationId')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка при получении прогресса');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Обновляем прогресс-бар
+                    const progressBar = document.getElementById('progress-bar');
+                    progressBar.style.width = data.progress + '%';
+                    progressBar.setAttribute('aria-valuenow', data.progress);
+                    progressBar.textContent = data.progress + '%';
+
+                    // Обновляем статус
+                    document.getElementById('status-text').textContent = data.status;
+
+                    // Если есть ошибка
+                    if (data.isError) {
+                        document.getElementById('error-container').classList.remove('d-none');
+                        document.getElementById('error-message').textContent = data.status;
+                        progressBar.classList.remove('progress-bar-animated', 'bg-primary');
+                        progressBar.classList.add('bg-danger');
+                        clearInterval(interval);
+                        return;
+                    }
+
+                    // Если операция завершена
+                    if (data.isCompleted) {
+                        document.getElementById('success-container').classList.remove('d-none');
+                        document.getElementById('download-btn').classList.remove('d-none');
+                        progressBar.classList.remove('progress-bar-animated');
+
+                        // Если есть URL для скачивания
+                        if (data.result) {
+                            document.getElementById('download-btn').href = data.result;
+                        }
+
+                        clearInterval(interval);
+                        return;
+                    }
+
+                    // Если прогресс достиг 100%, но операция не завершена
+                    if (data.progress >= 100) {
+                        progressBar.classList.add('bg-warning');
+                        document.getElementById('status-text').textContent = 'Ожидание завершения...';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    document.getElementById('error-container').classList.remove('d-none');
+                    document.getElementById('error-message').textContent = error.message;
+                    clearInterval(interval);
+                });
+        }
+
+        // Запускаем обновление прогресса каждую секунду
+        let interval = setInterval(updateProgress, 1000);
+
+        // Вызываем обновление сразу
+        updateProgress();
+    </script>
+}
+
+@* CSS для индикаторов загрузки - добавить в wwwroot/css/site.css *@
+/* CSS для индикаторов загрузки */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.progress {
+    height: 25px;
+}
+
+.progress-bar {
+    font-size: 16px;
+    line-height: 25px;
+}

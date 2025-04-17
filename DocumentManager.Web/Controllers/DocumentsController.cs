@@ -1,6 +1,8 @@
 ﻿using DocumentManager.Core.Entities;
 using DocumentManager.Core.Interfaces;
+using DocumentManager.Infrastructure.Services;
 using DocumentManager.Web.Models;
+using DocumentManager.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
@@ -17,16 +19,22 @@ namespace DocumentManager.Web.Controllers
         private readonly IDocumentService _documentService;
         private readonly IDocumentGenerationService _documentGenerationService;
         private readonly ILogger<DocumentsController> _logger;
+        private readonly ProgressService _progressService;
+        private readonly SimpleAuthService _authService;
 
         public DocumentsController(
             ITemplateService templateService,
             IDocumentService documentService,
             IDocumentGenerationService documentGenerationService,
+            ProgressService progressService,
+            SimpleAuthService authService,
             ILogger<DocumentsController> logger)
         {
             _templateService = templateService;
             _documentService = documentService;
             _documentGenerationService = documentGenerationService;
+            _progressService = progressService;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -142,7 +150,7 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        // POST: Documents/CreateForm
+        // POST: Documents/CreateForm - Обновление для сохранения текущего пользователя
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateForm(int templateId, Dictionary<string, string> fieldValues, List<int> selectedRelatedTemplateIds)
@@ -228,13 +236,16 @@ namespace DocumentManager.Web.Controllers
                     return View(viewModel);
                 }
 
+                // Получаем текущего пользователя
+                string createdBy = _authService.GetCurrentUser() ?? "Система";
+
                 // Создаем документ
                 var document = new Document
                 {
                     DocumentTemplateId = templateId,
                     FactoryNumber = factoryNumber,
                     CreatedAt = DateTime.UtcNow,
-                    CreatedBy = User.Identity?.Name ?? "Система"
+                    CreatedBy = createdBy
                 };
 
                 _logger.LogInformation($"Создание документа для шаблона {templateId} с заводским номером {factoryNumber}");
@@ -268,7 +279,7 @@ namespace DocumentManager.Web.Controllers
                             DocumentTemplateId = relatedTemplateId,
                             FactoryNumber = factoryNumber,
                             CreatedAt = DateTime.UtcNow,
-                            CreatedBy = User.Identity?.Name ?? "Система"
+                            CreatedBy = createdBy
                         };
 
                         _logger.LogInformation($"Создание связанного документа для шаблона {relatedTemplateId}");
@@ -280,20 +291,8 @@ namespace DocumentManager.Web.Controllers
                     }
                 }
 
-                // Генерируем документы
-                try
-                {
-                    _logger.LogInformation("Генерация документов");
-                    var generatedDocs = await _documentGenerationService.GenerateRelatedDocumentsAsync(document.Id);
-                    TempData["SuccessMessage"] = $"Документ успешно создан с заводским номером {factoryNumber}";
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Ошибка при генерации документов");
-                    TempData["WarningMessage"] = $"Документ создан, но возникла ошибка при генерации файлов: {ex.Message}";
-                }
-
-                return RedirectToAction(nameof(Index));
+                // Генерируем первый документ асинхронно
+                return RedirectToAction(nameof(GenerateAsync), new { id = document.Id });
             }
             catch (Exception ex)
             {
@@ -302,6 +301,8 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Create));
             }
         }
+    
+
 
         // GET: Documents/Details/5
         public async Task<IActionResult> Details(int id)
@@ -354,37 +355,83 @@ namespace DocumentManager.Web.Controllers
         }
 
         // GET: Documents/Generate/5
-        public async Task<IActionResult> Generate(int id)
+        public IActionResult GenerateAsync(int id)
         {
             try
             {
-                var document = await _documentService.GetDocumentByIdAsync(id);
+                // Создаем операцию отслеживания прогресса
+                var operationId = _progressService.CreateOperation();
 
-                if (document == null)
+                // Запускаем асинхронную генерацию документа в фоновом режиме
+                Task.Run(async () => await GenerateDocumentAsync(id, operationId));
+
+                // Возвращаем страницу с прогресс-баром
+                var viewModel = new GenerateProgressViewModel
                 {
-                    _logger.LogWarning($"Документ с ID {id} не найден");
-                    return NotFound();
-                }
+                    DocumentId = id,
+                    OperationId = operationId
+                };
 
-                _logger.LogInformation($"Генерация документа ID {id}");
-                var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
-
-                // Обновляем путь к сгенерированному файлу и содержимое
-                await _documentService.UpdateDocumentContentAsync(id, content, filePath);
-
-                // Перезагружаем документ чтобы получить обновленные данные
-                document = await _documentService.GetDocumentByIdAsync(id);
-
-                TempData["SuccessMessage"] = "Документ успешно сгенерирован";
-                return RedirectToAction(nameof(Details), new { id });
+                return View(viewModel);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Ошибка при генерации документа ID {id}");
+                _logger.LogError(ex, $"Ошибка при инициализации асинхронной генерации документа ID {id}");
                 TempData["ErrorMessage"] = $"Ошибка при генерации документа: {ex.Message}";
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
+
+        private async Task GenerateDocumentAsync(int documentId, string operationId)
+        {
+            try
+            {
+                // Обновляем прогресс
+                _progressService.UpdateProgress(operationId, 10, "Загрузка документа из базы данных...");
+
+                // Получаем документ
+                var document = await _documentService.GetDocumentByIdAsync(documentId);
+                if (document == null)
+                {
+                    _progressService.CompleteOperationWithError(operationId, $"Документ с ID {documentId} не найден");
+                    return;
+                }
+
+                _progressService.UpdateProgress(operationId, 20, "Подготовка шаблона...");
+
+                // Генерируем документ
+                try
+                {
+                    _progressService.UpdateProgress(operationId, 30, "Генерация документа...");
+                    var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(documentId);
+
+                    _progressService.UpdateProgress(operationId, 70, "Сохранение документа...");
+
+                    // Обновляем путь к сгенерированному файлу и содержимое
+                    await _documentService.UpdateDocumentContentAsync(documentId, content, filePath);
+
+                    _progressService.UpdateProgress(operationId, 90, "Завершение...");
+
+                    // Формируем URL для скачивания
+                    var downloadUrl = Url.Action("Download", "Documents", new { id = documentId });
+
+                    // Завершаем операцию с успехом
+                    _progressService.CompleteOperation(operationId, "Документ успешно сгенерирован");
+                    _progressService.GetProgress(operationId).Result = downloadUrl;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Ошибка при генерации документа ID {documentId}");
+                    _progressService.CompleteOperationWithError(operationId, ex.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Неожиданная ошибка при генерации документа ID {documentId}");
+                _progressService.CompleteOperationWithError(operationId, "Произошла неожиданная ошибка");
+            }
+        }
+
 
         // GET: Documents/Download/5
         public async Task<IActionResult> Download(int id)

@@ -1,0 +1,21 @@
+﻿@using DocumentManager.Web.Services
+
+@inject SimpleAuthService AuthService
+
+@if (AuthService.IsAuthenticated())
+{
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle text-dark" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle"></i> @AuthService.GetCurrentUser()
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+            <li><a class="dropdown-item" asp-controller="Auth" asp-action="Logout">Выйти</a></li>
+        </ul>
+    </li>
+}
+else
+{
+    <li class="nav-item">
+        <a class="nav-link text-dark" asp-controller="Auth" asp-action="Login">Войти</a>
+    </li>
+}

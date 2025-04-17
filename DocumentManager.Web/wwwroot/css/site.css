@@ -1,22 +1,327 @@
+/* DocumentManager.Web/wwwroot/css/site.css */
+
+/* Основные стили */
 html {
-  font-size: 14px;
+    font-size: 14px;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    html {
+        font-size: 16px;
+    }
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
+    background-color: #f8f9fa;
+}
+
+/* Стили для полоски прогресса */
+.progress {
+    height: 25px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+    float: left;
+    width: 0%;
+    height: 100%;
+    font-size: 16px;
+    line-height: 25px;
+    color: #fff;
+    text-align: center;
+    background-color: #337ab7;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    transition: width 0.6s ease;
+}
+
+.progress-bar-striped {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 40px 40px;
+}
+
+.progress-bar-animated {
+    animation: progress-bar-stripes 2s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+    from {
+        background-position: 40px 0;
+    }
+
+    to {
+        background-position: 0 0;
+    }
+}
+
+/* Стили для карточек */
+.card {
+    margin-bottom: 20px;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    border-bottom: none;
+    padding: 15px 20px;
+    font-weight: 600;
+    border-radius: 8px 8px 0 0 !important;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* Стили для кнопок */
+.btn {
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: #3b7ddd;
+    border-color: #3b7ddd;
+}
+
+    .btn-primary:hover {
+        background-color: #336ec2;
+        border-color: #336ec2;
+    }
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+    .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+    .btn-secondary:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+
+/* Стили для таблиц */
+.table {
+    margin-bottom: 0;
+}
+
+    .table th {
+        font-weight: 600;
+        border-top: none;
+    }
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Стили для форм */
+.form-control {
+    border-radius: 4px;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+}
+
+    .form-control:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+/* Стили для подсказок */
+.tooltip {
+    position: absolute;
+    z-index: 1070;
+    display: block;
+    margin: 0;
+    font-family: inherit;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    text-decoration: none;
+    text-shadow: none;
+    text-transform: none;
+    letter-spacing: normal;
+    word-break: normal;
+    word-spacing: normal;
+    white-space: normal;
+    line-break: auto;
+    font-size: 0.875rem;
+    word-wrap: break-word;
+    opacity: 0;
+}
+
+/* Стили для уведомлений */
+.alert {
+    border-radius: 4px;
+    border: none;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+}
+
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+}
+
+.alert-warning {
+    color: #856404;
+    background-color: #fff3cd;
+}
+
+.alert-info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+}
+
+/* Иконки Bootstrap */
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css");
+
+/* Стили для навбара */
+.navbar {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: #fff !important;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #3b7ddd !important;
+}
+
+.nav-link {
+    font-weight: 500;
+}
+
+/* Стили для подвала */
+.footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    line-height: 60px;
+    border-top: 1px solid #dee2e6;
+    background-color: #fff;
+}
+
+/* Стили для страницы входа */
+.login-container {
+    max-width: 400px;
+    margin: 100px auto;
+}
+
+/* Стили для бейджей */
+.badge {
+    padding: 5px 10px;
+    font-weight: 500;
+    border-radius: 30px;
+}
+
+/* Стили для уровней заголовков */
+h1 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    color: #3b7ddd;
+}
+
+h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1.25rem;
+    font-weight: 600;
+}
+
+h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+h4 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+h5 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+/* Стили для предпросмотра кода */
+pre {
+    background-color: #f8f9fa;
+    border: 1px solid #eaeaea;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: Monaco, Consolas, "Courier New", monospace;
+    font-size: 0.9rem;
+}
+
+/* Стили для текстовых областей с кодом */
+textarea.form-control.font-monospace {
+    font-family: Monaco, Consolas, "Courier New", monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Стили для мобильных устройств */
+@media (max-width: 768px) {
+    .card-header {
+        padding: 12px 15px;
+    }
+
+    .card-body {
+        padding: 15px;
+    }
+
+    .btn {
+        padding: 6px 12px;
+    }
+
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
 }

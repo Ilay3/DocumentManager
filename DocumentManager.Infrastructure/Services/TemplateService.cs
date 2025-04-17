@@ -21,12 +21,17 @@ namespace DocumentManager.Infrastructure.Services
             _jsonSchemaService = jsonSchemaService;
         }
 
-        public async Task<IEnumerable<DocumentTemplate>> GetAllTemplatesAsync()
+        public async Task<IEnumerable<DocumentTemplate>> GetAllTemplatesAsync(bool includeInactive = false)
         {
-            return await _context.DocumentTemplates
-                .Where(t => t.IsActive)
-                .OrderBy(t => t.Name)
-                .ToListAsync();
+            // Если includeInactive = true, возвращаем все шаблоны, иначе только активные
+            var query = _context.DocumentTemplates.AsQueryable();
+
+            if (!includeInactive)
+            {
+                query = query.Where(t => t.IsActive);
+            }
+
+            return await query.OrderBy(t => t.Name).ToListAsync();
         }
 
         public async Task<DocumentTemplate> GetTemplateByIdAsync(int id)
@@ -128,5 +133,5 @@ namespace DocumentManager.Infrastructure.Services
             return true;
         }
     }
-
 }
+

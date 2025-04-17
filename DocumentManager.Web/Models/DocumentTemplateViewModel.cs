@@ -1,4 +1,5 @@
-﻿namespace DocumentManager.Web.Models
+﻿// DocumentManager.Web/Models/DocumentTemplateViewModel.cs
+namespace DocumentManager.Web.Models
 {
     public class DocumentTemplateViewModel
     {
@@ -7,6 +8,7 @@
         public string Name { get; set; }
         public string Type { get; set; }
         public bool IsActive { get; set; }
+        public string JsonSchemaPath { get; set; }
+        public string WordTemplatePath { get; set; }
     }
-
 }

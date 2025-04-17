@@ -1,0 +1,70 @@
+﻿@model DocumentManager.Web.Models.FileViewModel
+
+@{
+    ViewData["Title"] = "Просмотр файла";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Просмотр файла: @Model.FileName</h1>
+    <div>
+        <a asp-action="Files" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к файлам
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Путь:</strong> @Model.FilePath
+            </div>
+            <div>
+                <strong>Тип:</strong> @(Model.FileType == "json" ? "JSON-схема" : "Шаблон Word")
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        @if (Model.FileType == "json")
+        {
+            <form asp-action="SaveFile" method="post">
+                <input type="hidden" name="type" value="@Model.FileType" />
+                <input type="hidden" name="path" value="@Model.FilePath" />
+
+                <div class="form-group mb-3">
+                    <textarea name="content" id="content" class="form-control font-monospace" style="height: 500px;">@Model.Content</textarea>
+                </div>
+
+                <div class="form-group text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Сохранить изменения
+                    </button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <pre class="border p-3 bg-light" style="max-height: 500px; overflow: auto;">@Model.Content</pre>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @if (Model.FileType == "json")
+    {
+        <script>
+            // Автоматическая подсветка синтаксиса JSON
+            document.addEventListener('DOMContentLoaded', function() {
+                const contentElement = document.getElementById('content');
+                try {
+                    // Пытаемся форматировать JSON
+                    const jsonObj = JSON.parse(contentElement.value);
+                    contentElement.value = JSON.stringify(jsonObj, null, 2);
+                } catch (e) {
+                    // Если не получилось, оставляем как есть
+                    console.warn('Не удалось форматировать JSON:', e);
+                }
+            });
+        </script>
+    }
+}

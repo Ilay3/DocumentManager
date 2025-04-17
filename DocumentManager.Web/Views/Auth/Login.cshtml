@@ -1,0 +1,39 @@
+﻿@* DocumentManager.Web/Views/Auth/Login.cshtml *@
+@model DocumentManager.Web.Models.LoginViewModel
+
+@{
+    ViewData["Title"] = "Вход в систему";
+    Layout = "_LayoutLogin";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white text-center">
+                <h4>Вход в систему управления документами</h4>
+            </div>
+            <div class="card-body">
+                <form asp-action="Login" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                    <div class="form-group mb-3">
+                        <label asp-for="FullName" class="control-label">ФИО пользователя</label>
+                        <input asp-for="FullName" class="form-control" placeholder="Введите ваше полное имя" autofocus />
+                        <span asp-validation-for="FullName" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group text-center">
+                        <button type="submit" class="btn btn-primary btn-lg px-5">Войти</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
+

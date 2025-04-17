@@ -2,128 +2,84 @@
 using DocumentManager.Core.Interfaces;
 using DocumentManager.Infrastructure.Data;
 using DocumentManager.Infrastructure.Services;
+using DocumentManager.Web.Middleware;
+using DocumentManager.Web.Services;
 using Microsoft.EntityFrameworkCore;
-using System.IO;
-using System.Text;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Регистрируем поддержку кодировок для корректной работы с русскими символами
-Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+// Добавляем поддержку сессий
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// Добавляем доступ к HTTP контексту
+builder.Services.AddHttpContextAccessor();
+
+// Добавляем сервисы для внедрения зависимостей
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Путь к директориям из конфигурации
+var jsonBasePath = Path.Combine(builder.Environment.WebRootPath, builder.Configuration["JsonBasePath"] ?? "Templates/Json");
+var templatesBasePath = Path.Combine(builder.Environment.WebRootPath, builder.Configuration["TemplatesBasePath"] ?? "Templates/Word");
+var outputBasePath = Path.Combine(builder.Environment.WebRootPath, builder.Configuration["OutputBasePath"] ?? "Generated");
+
+// Регистрируем службы
+builder.Services.AddScoped<IJsonSchemaService, JsonSchemaService>(provider =>
+    new JsonSchemaService(jsonBasePath));
+
+builder.Services.AddScoped<ITemplateService, TemplateService>();
+
+builder.Services.AddScoped<IDocumentGenerationService, DocumentGenerationService>(provider =>
+    new DocumentGenerationService(
+        templatesBasePath,
+        outputBasePath,
+        provider.GetRequiredService<IDocumentService>(),
+        provider.GetRequiredService<ILogger<DocumentGenerationService>>()
+    ));
+
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+
+builder.Services.AddScoped<TemplateManagerService>(provider =>
+    new TemplateManagerService(
+        provider.GetRequiredService<ApplicationDbContext>(),
+        provider.GetRequiredService<ITemplateService>(),
+        provider.GetRequiredService<IJsonSchemaService>(),
+        provider.GetRequiredService<ILogger<TemplateManagerService>>(),
+        jsonBasePath,
+        templatesBasePath
+    ));
+
+// Регистрируем службы для авторизации и отслеживания прогресса
+builder.Services.AddSingleton<ProgressService>();
+builder.Services.AddScoped<SimpleAuthService>();
+
+// Добавляем фоновую службу для очистки устаревших операций
+builder.Services.AddHostedService<ProgressCleanupService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Настройка базы данных PostgreSQL
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Получаем базовые пути с проверкой на null
-var webRootPath = builder.Environment.WebRootPath ??
-    Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
-var contentRootPath = builder.Environment.ContentRootPath ??
-    Directory.GetCurrentDirectory();
-
-// Настройка путей к шаблонам и выходным файлам с гарантированными значениями
-var templatesBasePath = builder.Configuration.GetValue<string>("TemplatesBasePath") ??
-    "Templates/Word";
-
-var jsonBasePath = builder.Configuration.GetValue<string>("JsonBasePath") ??
-    "Templates/Json";
-
-var outputBasePath = builder.Configuration.GetValue<string>("OutputBasePath") ??
-    "Generated";
-
-var fullTemplatesBasePath = Path.IsPathRooted(templatesBasePath) ?
-    templatesBasePath : Path.Combine(webRootPath, templatesBasePath);
-
-var fullJsonBasePath = Path.IsPathRooted(jsonBasePath) ?
-    jsonBasePath : Path.Combine(webRootPath, jsonBasePath);
-
-var fullOutputBasePath = Path.IsPathRooted(outputBasePath) ?
-    outputBasePath : Path.Combine(webRootPath, outputBasePath);
-
-// Настройка логирования
-builder.Services.AddLogging(logging =>
-{
-    logging.AddConsole();
-    logging.AddDebug();
-    logging.SetMinimumLevel(LogLevel.Debug);
-});
-
-// Регистрация сервисов
-builder.Services.AddSingleton<IJsonSchemaService>(provider =>
-    new JsonSchemaService(fullJsonBasePath));
-
-builder.Services.AddScoped<ITemplateService, TemplateService>();
-builder.Services.AddScoped<IDocumentService>(provider =>
-    new DocumentService(
-        provider.GetRequiredService<ApplicationDbContext>(),
-        provider.GetRequiredService<ILogger<DocumentService>>()));
-
-builder.Services.AddScoped<IDocumentGenerationService>(provider =>
-    new DocumentGenerationService(
-        fullTemplatesBasePath,
-        fullOutputBasePath,
-        provider.GetRequiredService<IDocumentService>(),
-        provider.GetRequiredService<ILogger<DocumentGenerationService>>()));
-
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.WriteIndented = true;
-        options.JsonSerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
-    });
-
-
-// Регистрация сервиса инициализации данных
-builder.Services.AddTransient<DataInitializer>(provider =>
-    new DataInitializer(
-        provider.GetRequiredService<ApplicationDbContext>(),
-        provider.GetRequiredService<ITemplateService>(),
-        provider.GetRequiredService<IJsonSchemaService>(),
-        provider.GetRequiredService<ILogger<DataInitializer>>(),
-        fullJsonBasePath,
-        fullTemplatesBasePath));
-
 var app = builder.Build();
 
-// Логирование путей для диагностики
-app.Logger.LogInformation($"WebRootPath: {webRootPath}");
-app.Logger.LogInformation($"ContentRootPath: {contentRootPath}");
-app.Logger.LogInformation($"TemplatesBasePath: {templatesBasePath} -> {fullTemplatesBasePath}");
-app.Logger.LogInformation($"JsonBasePath: {jsonBasePath} -> {fullJsonBasePath}");
-app.Logger.LogInformation($"OutputBasePath: {outputBasePath} -> {fullOutputBasePath}");
-
-// Создание необходимых директорий
-Directory.CreateDirectory(fullTemplatesBasePath);
-app.Logger.LogInformation($"Создана/проверена директория шаблонов: {fullTemplatesBasePath}");
-
-Directory.CreateDirectory(fullJsonBasePath);
-app.Logger.LogInformation($"Создана/проверена директория JSON: {fullJsonBasePath}");
-
-Directory.CreateDirectory(fullOutputBasePath);
-app.Logger.LogInformation($"Создана/проверена директория вывода: {fullOutputBasePath}");
-
-// Инициализация базы данных
+// Запускаем инициализацию базы данных (создание миграций)
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
+    var services = scope.ServiceProvider;
     try
     {
-        // Применение миграций
-        app.Logger.LogInformation("Применение миграций базы данных...");
-        context.Database.Migrate();
-
-        // Инициализация данных
-        app.Logger.LogInformation("Инициализация данных...");
-        var dataInitializer = scope.ServiceProvider.GetRequiredService<DataInitializer>();
-        dataInitializer.InitializeAsync().Wait();
+        var dbContext = services.GetRequiredService<ApplicationDbContext>();
+        dbContext.Database.Migrate();
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "Ошибка при инициализации базы данных");
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Ошибка при выполнении миграций базы данных");
     }
 }
 
@@ -131,6 +87,7 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
@@ -139,6 +96,11 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseSession();
+
+// Используем наше промежуточное ПО для авторизации
+app.UseSimpleAuth();
+
 app.UseAuthorization();
 
 app.MapControllerRoute(
@@ -146,3 +108,54 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+// Фоновая служба для очистки устаревших операций
+public class ProgressCleanupService : BackgroundService
+{
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<ProgressCleanupService> _logger;
+    private readonly TimeSpan _cleanupInterval = TimeSpan.FromHours(1);
+    private readonly TimeSpan _maxAge = TimeSpan.FromHours(24);
+
+    public ProgressCleanupService(
+        IServiceProvider serviceProvider,
+        ILogger<ProgressCleanupService> logger)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Служба очистки прогресса запущена");
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Ждем заданный интервал
+                await Task.Delay(_cleanupInterval, stoppingToken);
+
+                // Выполняем очистку
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var progressService = scope.ServiceProvider.GetRequiredService<ProgressService>();
+                    progressService.CleanupOldOperations(_maxAge);
+                    _logger.LogInformation("Выполнена очистка устаревших операций");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Операция отменена, завершаем работу
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при очистке устаревших операций");
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            }
+        }
+
+        _logger.LogInformation("Служба очистки прогресса остановлена");
+    }
+}
