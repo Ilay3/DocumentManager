@@ -363,7 +363,7 @@ namespace DocumentManager.Web.Controllers
                 var operationId = _progressService.CreateOperation();
 
                 // Запускаем асинхронную генерацию документа в фоновом режиме
-                Task.Run(async () => await GenerateDocumentAsync(id, operationId));
+                Task.Run(async () => await GenerateDocument(id, operationId));
 
                 // Возвращаем страницу с прогресс-баром
                 var viewModel = new GenerateProgressViewModel
@@ -382,7 +382,7 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        private async Task GenerateDocumentAsync(int documentId, string operationId)
+        private async Task GenerateDocument(int documentId, string operationId)
         {
             try
             {
