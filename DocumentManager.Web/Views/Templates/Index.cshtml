@@ -4,28 +4,102 @@
     ViewData["Title"] = "Шаблоны документов";
 }
 
-<h1>Шаблоны документов</h1>
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1 class="display-6 mb-0">
+            <i class="bi bi-file-earmark-ruled text-primary me-2"></i> Шаблоны документов
+        </h1>
+        <p class="text-muted mt-2">Список доступных шаблонов для создания документов</p>
+    </div>
+    <div class="col-md-6 text-md-end">
+        <a href="@Url.Action("Index", "TemplatesAdmin")" class="btn btn-outline-secondary">
+            <i class="bi bi-gear"></i> Управление шаблонами
+        </a>
+    </div>
+</div>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Код</th>
-            <th>Наименование</th>
-            <th>Тип</th>
-            <th>Действия</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var template in Model)
+<div class="row g-4">
+    @if (!Model.Any())
+    {
+        <div class="col-12">
+            <div class="text-center py-5">
+                <div class="display-6 text-muted mb-4">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+                <h3>Шаблоны не найдены</h3>
+                <p class="text-muted">В системе пока нет доступных шаблонов документов</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        foreach (var template in Model)
         {
-            <tr>
-                <td>@template.Code</td>
-                <td>@template.Name</td>
-                <td>@template.Type</td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-info">Подробности</a>
-                </td>
-            </tr>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm template-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="template-icon rounded-circle bg-light text-primary d-flex align-items-center justify-content-center me-3">
+                                @{
+                                    string iconClass = "bi-file-earmark-text";
+                                    if (template.Type == "Passport") iconClass = "bi-journal-bookmark";
+                                    else if (template.Type == "PackingList") iconClass = "bi-box-seam";
+                                }
+                                <i class="bi @iconClass fs-4"></i>
+                            </div>
+                            <div>
+                                <h5 class="card-title mb-0">@template.Name</h5>
+                                <div class="text-muted small">@template.Code</div>
+                            </div>
+                        </div>
+
+                        <div class="template-type mb-3">
+                            @{
+                                string badgeClass = "bg-secondary";
+                                if (template.Type == "Passport") badgeClass = "bg-primary";
+                                else if (template.Type == "PackingList") badgeClass = "bg-success";
+                            }
+                            <span class="badge @badgeClass">@template.Type</span>
+                            @if (template.IsActive)
+                            {
+                                <span class="badge bg-success ms-1">Активен</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger ms-1">Отключен</span>
+                            }
+                        </div>
+
+                        <div class="template-actions mt-auto pt-3 d-flex">
+                            <a asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary me-2">
+                                <i class="bi bi-info-circle"></i> Подробности
+                            </a>
+                            @if (template.IsActive)
+                            {
+                                <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@template.Id" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Создать документ
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
-    </tbody>
-</table>
+    }
+</div>
+
+<style>
+    .template-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .template-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .template-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+</style>

@@ -237,7 +237,10 @@
 
                             // Если есть URL для скачивания
                             if (data.result) {
-                                document.getElementById('download-btn').href = data.result;
+                                // Убедимся, что URL абсолютный
+                                const downloadUrl = data.result.startsWith('/') ? data.result : '/' + data.result;
+                                document.getElementById('download-btn').href = downloadUrl;
+                                console.log('Установлен URL скачивания:', downloadUrl);
                             }
 
                             clearInterval(interval);

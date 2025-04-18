@@ -520,7 +520,7 @@ namespace DocumentManager.Web.Controllers
                 // Обновляем прогресс
                 _progressService.UpdateProgress(operationId, 10, "Загрузка документа из базы данных...");
 
-                // Получаем документ
+                // Создаем копию всех необходимых данных до начала фоновой обработки
                 var document = await _documentService.GetDocumentByIdAsync(documentId);
                 if (document == null)
                 {
@@ -528,13 +528,23 @@ namespace DocumentManager.Web.Controllers
                     return;
                 }
 
+                // Формируем абсолютный URL с ведущим слешем, чтобы гарантировать правильное формирование пути
+                string downloadUrl = $"/Documents/Download/{documentId}";
+
+                // Получаем значения полей
+                var fieldValues = await _documentService.GetDocumentValuesAsync(documentId);
+
                 _progressService.UpdateProgress(operationId, 20, "Подготовка шаблона...");
 
                 // Генерируем документ
                 try
                 {
                     _progressService.UpdateProgress(operationId, 30, "Генерация документа...");
-                    var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(documentId);
+
+                    // Вызываем сервис генерации с собранными данными
+                    var generationResult = await _documentGenerationService.GenerateDocumentAsync(documentId);
+                    string filePath = generationResult.FilePath;
+                    byte[] content = generationResult.Content;
 
                     _progressService.UpdateProgress(operationId, 70, "Сохранение документа...");
 
@@ -543,10 +553,7 @@ namespace DocumentManager.Web.Controllers
 
                     _progressService.UpdateProgress(operationId, 90, "Завершение...");
 
-                    // Формируем URL для скачивания
-                    var downloadUrl = Url.Action("Download", "Documents", new { id = documentId });
-
-                    // Завершаем операцию с успехом
+                    // Используем заранее сформированный URL
                     _progressService.CompleteOperation(operationId, "Документ успешно сгенерирован");
                     _progressService.GetProgress(operationId).Result = downloadUrl;
                 }
@@ -563,106 +570,21 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-
-        // GET: Documents/Download/5
-        public async Task<IActionResult> Download(int id)
-        {
-            try
-            {
-                var document = await _documentService.GetDocumentByIdAsync(id);
-
-                if (document == null)
-                {
-                    _logger.LogWarning($"Документ с ID {id} не найден");
-                    return NotFound();
-                }
-
-                byte[] fileBytes;
-                string contentType;
-
-                // Приоритет: 1) DocumentContent из БД, 2) Файл на диске, 3) Генерация нового
-                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
-                {
-                    _logger.LogInformation($"Скачивание документа ID {id} из содержимого в БД");
-                    fileBytes = document.DocumentContent;
-                }
-                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
-                {
-                    _logger.LogInformation($"Скачивание документа ID {id} из файла на диске");
-                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
-                }
-                else
-                {
-                    _logger.LogInformation($"Генерация документа ID {id} для скачивания");
-                    var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
-                    fileBytes = content;
-
-                    // Обновляем документ в базе данных
-                    await _documentService.UpdateDocumentContentAsync(id, content, filePath);
-                }
-
-                // Проверка, что мы действительно получили содержимое файла
-                if (fileBytes == null || fileBytes.Length == 0)
-                {
-                    _logger.LogError($"Содержимое документа пустое для ID {id}");
-                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа. Пожалуйста, попробуйте сгенерировать документ заново.";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
-                // Определяем тип контента и имя файла
-                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
-
-                if (extension == ".docx")
-                {
-                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                }
-                else
-                {
-                    contentType = "application/msword";
-                }
-
-                // Создаем имя файла с транслитерацией русских символов
-                string originalFileName = $"{document.DocumentTemplate.Code}_{document.FactoryNumber}";
-                string transliteratedFileName = TransliterationHelper.Transliterate(originalFileName);
-
-                // Заменяем пробелы и другие небезопасные символы на подчеркивания
-                string safeFileName = transliteratedFileName
-                    .Replace(" ", "_")
-                    .Replace(",", "_")
-                    .Replace("\"", "_")
-                    .Replace("'", "_")
-                    .Replace(":", "_")
-                    .Replace(";", "_")
-                    .Replace("?", "_") + extension;
-
-                _logger.LogInformation($"Отправка файла клиенту: {safeFileName}, размер: {fileBytes.Length} байт");
-
-                // Возвращаем файл с безопасным именем
-                return File(fileBytes, contentType, safeFileName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при скачивании документа ID {id}");
-                TempData["ErrorMessage"] = $"Ошибка при скачивании документа: {ex.Message}";
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
-
         public static class TransliterationHelper
         {
             private static readonly Dictionary<char, string> transliterationMap = new Dictionary<char, string>
-    {
-        {'а', "a"}, {'б', "b"}, {'в', "v"}, {'г', "g"}, {'д', "d"}, {'е', "e"}, {'ё', "yo"},
-        {'ж', "zh"}, {'з', "z"}, {'и', "i"}, {'й', "y"}, {'к', "k"}, {'л', "l"}, {'м', "m"},
-        {'н', "n"}, {'о', "o"}, {'п', "p"}, {'р', "r"}, {'с', "s"}, {'т', "t"}, {'у', "u"},
-        {'ф', "f"}, {'х', "kh"}, {'ц', "ts"}, {'ч', "ch"}, {'ш', "sh"}, {'щ', "sch"}, {'ъ', ""},
-        {'ы', "y"}, {'ь', ""}, {'э', "e"}, {'ю', "yu"}, {'я', "ya"},
-        {'А', "A"}, {'Б', "B"}, {'В', "V"}, {'Г', "G"}, {'Д', "D"}, {'Е', "E"}, {'Ё', "Yo"},
-        {'Ж', "Zh"}, {'З', "Z"}, {'И', "I"}, {'Й', "Y"}, {'К', "K"}, {'Л', "L"}, {'М', "M"},
-        {'Н', "N"}, {'О', "O"}, {'П', "P"}, {'Р', "R"}, {'С', "S"}, {'Т', "T"}, {'У', "U"},
-        {'Ф', "F"}, {'Х', "Kh"}, {'Ц', "Ts"}, {'Ч', "Ch"}, {'Ш', "Sh"}, {'Щ', "Sch"}, {'Ъ', ""},
-        {'Ы', "Y"}, {'Ь', ""}, {'Э', "E"}, {'Ю', "Yu"}, {'Я', "Ya"}
-    };
+        {
+            {'а', "a"}, {'б', "b"}, {'в', "v"}, {'г', "g"}, {'д', "d"}, {'е', "e"}, {'ё', "yo"},
+            {'ж', "zh"}, {'з', "z"}, {'и', "i"}, {'й', "y"}, {'к', "k"}, {'л', "l"}, {'м', "m"},
+            {'н', "n"}, {'о', "o"}, {'п', "p"}, {'р', "r"}, {'с', "s"}, {'т', "t"}, {'у', "u"},
+            {'ф', "f"}, {'х', "kh"}, {'ц', "ts"}, {'ч', "ch"}, {'ш', "sh"}, {'щ', "sch"}, {'ъ', ""},
+            {'ы', "y"}, {'ь', ""}, {'э', "e"}, {'ю', "yu"}, {'я', "ya"},
+            {'А', "A"}, {'Б', "B"}, {'В', "V"}, {'Г', "G"}, {'Д', "D"}, {'Е', "E"}, {'Ё', "Yo"},
+            {'Ж', "Zh"}, {'З', "Z"}, {'И', "I"}, {'Й', "Y"}, {'К', "K"}, {'Л', "L"}, {'М', "M"},
+            {'Н', "N"}, {'О', "O"}, {'П', "P"}, {'Р', "R"}, {'С', "S"}, {'Т', "T"}, {'У', "U"},
+            {'Ф', "F"}, {'Х', "Kh"}, {'Ц', "Ts"}, {'Ч', "Ch"}, {'Ш', "Sh"}, {'Щ', "Sch"}, {'Ъ', ""},
+            {'Ы', "Y"}, {'Ь', ""}, {'Э', "E"}, {'Ю', "Yu"}, {'Я', "Ya"}
+        };
 
             /// <summary>
             /// Транслитерирует строку с русского на английский
@@ -713,7 +635,6 @@ namespace DocumentManager.Web.Controllers
                 byte[] fileBytes;
                 string contentType;
 
-                // Приоритет: 1) DocumentContent из БД, 2) Файл на диске, 3) Генерация нового
                 if (document.DocumentContent != null && document.DocumentContent.Length > 0)
                 {
                     _logger.LogInformation($"Печать документа ID {id} из содержимого в БД");
@@ -768,6 +689,93 @@ namespace DocumentManager.Web.Controllers
             {
                 _logger.LogError(ex, $"Ошибка при печати документа ID {id}");
                 TempData["ErrorMessage"] = $"Ошибка при печати документа: {ex.Message}";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
+        [HttpGet]
+        [Route("Documents/Download/{id}")]
+        // GET: Documents/Download/5
+        public async Task<IActionResult> Download(int id)
+        {
+            try
+            {
+                // Получаем документ без загрузки содержимого
+                var document = await _documentService.GetDocumentByIdAsync(id);
+
+                if (document == null)
+                {
+                    _logger.LogWarning($"Документ с ID {id} не найден");
+                    return NotFound();
+                }
+
+                byte[] fileBytes;
+                string contentType;
+
+                if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
+                {
+                    _logger.LogInformation($"Скачивание документа ID {id} из файла на диске: {document.GeneratedFilePath}");
+                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
+                }
+                else
+                {
+                    _logger.LogInformation($"Генерация документа ID {id} для скачивания");
+                    var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
+                    fileBytes = content;
+
+                    // Сохраняем сгенерированное содержимое
+                    if (content != null && content.Length > 0)
+                    {
+                        await _documentService.UpdateDocumentContentAsync(id, content, filePath);
+                    }
+                }
+
+                // Проверка на пустое содержимое
+                if (fileBytes == null || fileBytes.Length == 0)
+                {
+                    _logger.LogError($"Содержимое документа пустое для ID {id}");
+                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа. Пожалуйста, попробуйте сгенерировать документ заново.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                // Определение типа контента и имени файла
+                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
+
+                if (extension == ".docx")
+                {
+                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                }
+                else
+                {
+                    contentType = "application/msword";
+                }
+
+                // Создание имени файла с транслитерацией русских символов
+                string originalFileName = $"{document.DocumentTemplate.Code}_{document.FactoryNumber}";
+                string transliteratedFileName = TransliterationHelper.Transliterate(originalFileName);
+
+                // Обработка специальных символов в имени файла
+                string safeFileName = transliteratedFileName
+                    .Replace(" ", "_")
+                    .Replace(",", "_")
+                    .Replace("\"", "_")
+                    .Replace("'", "_")
+                    .Replace(":", "_")
+                    .Replace(";", "_")
+                    .Replace("?", "_") + extension;
+
+                _logger.LogInformation($"Отправка файла клиенту: {safeFileName}, размер: {fileBytes.Length} байт");
+
+                // Установка правильных заголовков для скачивания
+                Response.Headers.Add("Content-Disposition", $"attachment; filename=\"{safeFileName}\"");
+
+                // Возвращаем файл клиенту
+                return File(fileBytes, contentType, safeFileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при скачивании документа ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка при скачивании документа: {ex.Message}";
                 return RedirectToAction(nameof(Details), new { id });
             }
         }

@@ -4,46 +4,128 @@
     ViewData["Title"] = "Подробности шаблона";
 }
 
-<h1>Подробности шаблона</h1>
-
-<div>
-    <h4>@Model.TemplateName</h4>
-    <hr />
-
-    <dl class="row">
-        <dt class="col-sm-3">Код шаблона:</dt>
-        <dd class="col-sm-9">@Model.TemplateCode</dd>
-    </dl>
-
-    <h5 class="mt-4">Поля шаблона:</h5>
-
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Имя поля</th>
-                <th>Метка</th>
-                <th>Тип</th>
-                <th>Обязательное</th>
-                <th>Уникальное</th>
-                <th>Значение по умолчанию</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var field in Model.Fields)
-            {
-                <tr>
-                    <td>@field.FieldName</td>
-                    <td>@field.FieldLabel</td>
-                    <td>@field.FieldType</td>
-                    <td>@(field.IsRequired ? "Да" : "Нет")</td>
-                    <td>@(field.IsUnique ? "Да" : "Нет")</td>
-                    <td>@field.DefaultValue</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h1 class="display-6 mb-0">
+            <i class="bi bi-file-earmark-ruled text-primary me-2"></i> Подробности шаблона
+        </h1>
+        <p class="text-muted mt-2">@Model.TemplateName</p>
+    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@Model.TemplateId" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Создать документ
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к списку
+        </a>
+    </div>
 </div>
 
-<div>
-    <a asp-action="Index" class="btn btn-secondary">Назад к списку</a>
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle text-primary me-2"></i> Информация о шаблоне
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="template-info">
+                    <div class="mb-3">
+                        <label class="text-muted d-block">Код шаблона</label>
+                        <div class="fw-bold fs-5">@Model.TemplateCode</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted d-block">Наименование</label>
+                        <div>@Model.TemplateName</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted d-block">Количество полей</label>
+                        <div>@Model.Fields.Count</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-check text-primary me-2"></i> Поля шаблона
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (!Model.Fields.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> У данного шаблона нет определенных полей.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Имя поля</th>
+                                    <th>Метка</th>
+                                    <th>Тип</th>
+                                    <th>Атрибуты</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var field in Model.Fields)
+                                {
+                                    <tr>
+                                        <td>@field.FieldName</td>
+                                        <td>@field.FieldLabel</td>
+                                        <td>
+                                            @{
+                                                string typeClass = "bg-secondary";
+                                                if (field.FieldType == "text") typeClass = "bg-primary";
+                                                else if (field.FieldType == "date") typeClass = "bg-success";
+                                                else if (field.FieldType == "select") typeClass = "bg-info";
+                                            }
+                                            <span class="badge @typeClass">@field.FieldType</span>
+                                        </td>
+                                        <td>
+                                            @if (field.IsRequired)
+                                            {
+                                                <span class="badge bg-danger me-1">Обязательное</span>
+                                            }
+                                            @if (field.IsUnique)
+                                            {
+                                                <span class="badge bg-warning text-dark me-1">Уникальное</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(field.DefaultValue))
+                                            {
+                                                <span class="badge bg-light text-dark border" title="Значение по умолчанию: @field.DefaultValue">
+                                                    По умолчанию: @(field.DefaultValue.Length > 10 ? field.DefaultValue.Substring(0, 10) + "..." : field.DefaultValue)
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            <div class="card-footer bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">Всего полей: @Model.Fields.Count</span>
+                    <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@Model.TemplateId" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Создать документ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 mb-5">
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад к списку
+    </a>
 </div>
