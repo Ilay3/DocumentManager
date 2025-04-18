@@ -1,0 +1,163 @@
+﻿@model DocumentManager.Web.Models.DocumentViewModel
+
+<div class="document-sidebar-content">
+    <!-- Document header with status badge -->
+    <div class="document-header mb-4">
+        <h5 class="d-flex align-items-center">
+            <span class="me-2">@Model.FactoryNumber</span>
+            @if (!string.IsNullOrWhiteSpace(Model.GeneratedFilePath))
+            {
+                <span class="badge bg-success ms-auto"><i class="bi bi-check-circle"></i> Сгенерирован</span>
+            }
+            else
+            {
+                <span class="badge bg-warning text-dark ms-auto"><i class="bi bi-exclamation-circle"></i> Не сгенерирован</span>
+            }
+        </h5>
+        <div class="text-muted">@Model.TemplateName</div>
+    </div>
+
+    <!-- Quick action buttons -->
+    <div class="action-buttons mb-4">
+        <div class="row g-2">
+            <div class="col">
+                <a href="@Url.Action("Details", "Documents", new { id = Model.Id })" class="btn btn-primary w-100">
+                    <i class="bi bi-eye"></i> Просмотр
+                </a>
+            </div>
+            <div class="col">
+                <a href="@Url.Action("GenerateAsync", "Documents", new { id = Model.Id })" class="btn btn-success w-100">
+                    <i class="bi bi-gear"></i> Сгенерировать
+                </a>
+            </div>
+        </div>
+        <div class="row g-2 mt-2">
+            @if (!string.IsNullOrWhiteSpace(Model.GeneratedFilePath))
+            {
+                <div class="col">
+                    <a href="@Url.Action("Download", "Documents", new { id = Model.Id })" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-download"></i> Скачать
+                    </a>
+                </div>
+                <div class="col">
+                    <a href="@Url.Action("Print", "Documents", new { id = Model.Id })" target="_blank" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-printer"></i> Печать
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="alert alert-warning py-2">
+                        <small><i class="bi bi-exclamation-triangle"></i> Документ не сгенерирован. Нажмите "Сгенерировать".</small>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Document info -->
+    <div class="info-section mb-4">
+        <h6 class="sidebar-section-title">
+            <i class="bi bi-info-circle"></i> Информация
+        </h6>
+        <table class="table table-sm">
+            <tr>
+                <th class="ps-0" style="width: 40%;">Дата создания</th>
+                <td class="pe-0">@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+            </tr>
+            <tr>
+                <th class="ps-0">Создал</th>
+                <td class="pe-0">@Model.CreatedBy</td>
+            </tr>
+            <tr>
+                <th class="ps-0">Код шаблона</th>
+                <td class="pe-0">@Model.TemplateCode</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Document fields -->
+    <div class="fields-section mb-4">
+        <h6 class="sidebar-section-title">
+            <i class="bi bi-list-check"></i> Значения полей
+        </h6>
+        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Поле</th>
+                        <th>Значение</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.FieldValues != null)
+                    {
+                        foreach (var field in Model.FieldValues)
+                        {
+                            <tr>
+                                <td>@field.Key</td>
+                                <td>@field.Value</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Related documents -->
+    @if (Model.RelatedDocuments != null && Model.RelatedDocuments.Any())
+    {
+        <div class="related-section mb-4">
+            <h6 class="sidebar-section-title">
+                <i class="bi bi-diagram-3"></i> Связанные документы
+            </h6>
+            <div class="list-group list-group-flush">
+                @foreach (var relatedDoc in Model.RelatedDocuments)
+                {
+                    <div class="list-group-item list-group-item-action p-2">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">@relatedDoc.TemplateName</h6>
+                                <small class="text-muted">@relatedDoc.FactoryNumber</small>
+                            </div>
+                            <div class="btn-group">
+                                <a href="@Url.Action("Details", "Documents", new { id = relatedDoc.Id })" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                @if (!string.IsNullOrWhiteSpace(relatedDoc.GeneratedFilePath))
+                                {
+                                    <a href="@Url.Action("Download", "Documents", new { id = relatedDoc.Id })" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Danger zone -->
+    <div class="danger-section mt-4 pt-3 border-top">
+        <a href="@Url.Action("Delete", "Documents", new { id = Model.Id })" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash"></i> Удалить документ
+        </a>
+    </div>
+</div>
+
+<style>
+    .document-sidebar-content {
+        overflow-y: auto;
+        max-height: calc(100vh - 100px);
+    }
+
+    .sidebar-section-title {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
+        color: #2b5797;
+    }
+</style>

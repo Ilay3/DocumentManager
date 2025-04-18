@@ -38,14 +38,117 @@ namespace DocumentManager.Web.Controllers
             _logger = logger;
         }
 
-        // GET: Documents
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> DetailsSidebar(int id)
         {
             try
             {
-                var documents = await _documentService.GetAllDocumentsAsync();
+                var document = await _documentService.GetDocumentByIdAsync(id);
 
-                var viewModels = documents.Select(d => new DocumentViewModel
+                if (document == null)
+                {
+                    return NotFound();
+                }
+
+                var fieldValues = await _documentService.GetDocumentValuesAsync(id);
+                var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(id);
+
+                var viewModel = new DocumentViewModel
+                {
+                    Id = document.Id,
+                    TemplateId = document.DocumentTemplateId,
+                    TemplateCode = document.DocumentTemplate.Code,
+                    TemplateName = document.DocumentTemplate.Name,
+                    FactoryNumber = document.FactoryNumber,
+                    CreatedAt = document.CreatedAt,
+                    CreatedBy = document.CreatedBy,
+                    GeneratedFilePath = document.GeneratedFilePath,
+                    FieldValues = fieldValues,
+                    RelatedDocuments = relatedDocuments.Select(d => new DocumentViewModel
+                    {
+                        Id = d.Id,
+                        TemplateId = d.DocumentTemplateId,
+                        TemplateCode = d.DocumentTemplate.Code,
+                        TemplateName = d.DocumentTemplate.Name,
+                        FactoryNumber = d.FactoryNumber,
+                        CreatedAt = d.CreatedAt,
+                        CreatedBy = d.CreatedBy,
+                        GeneratedFilePath = d.GeneratedFilePath
+                    }).ToList()
+                };
+
+                return PartialView(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при получении деталей документа ID {id} для боковой панели");
+                return Content($"<div class='alert alert-danger'>Ошибка: {ex.Message}</div>");
+            }
+        }
+
+        
+        // GET: Documents
+        public async Task<IActionResult> Index(
+            string factoryNumber = null,
+            int? templateId = null,
+            DateTime? dateFrom = null,
+            DateTime? dateTo = null,
+            string search = null,
+            string viewMode = "list",
+            int page = 1,
+            int pageSize = 12)
+        {
+            try
+            {
+                // Get all documents
+                var allDocuments = await _documentService.GetAllDocumentsAsync();
+
+                // Filter documents
+                var filteredDocuments = allDocuments.AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(factoryNumber))
+                {
+                    filteredDocuments = filteredDocuments.Where(d => d.FactoryNumber.Contains(factoryNumber, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (templateId.HasValue)
+                {
+                    filteredDocuments = filteredDocuments.Where(d => d.DocumentTemplateId == templateId.Value);
+                }
+
+                if (dateFrom.HasValue)
+                {
+                    filteredDocuments = filteredDocuments.Where(d => d.CreatedAt >= dateFrom.Value);
+                }
+
+                if (dateTo.HasValue)
+                {
+                    // Add one day to include the entire dateTo day
+                    var dateToEnd = dateTo.Value.AddDays(1);
+                    filteredDocuments = filteredDocuments.Where(d => d.CreatedAt < dateToEnd);
+                }
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    filteredDocuments = filteredDocuments.Where(d =>
+                        d.FactoryNumber.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        d.DocumentTemplate.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        d.CreatedBy.Contains(search, StringComparison.OrdinalIgnoreCase));
+                }
+
+                // Order by creation date (newest first)
+                filteredDocuments = filteredDocuments.OrderByDescending(d => d.CreatedAt);
+
+                // Get total count for pagination
+                var totalCount = filteredDocuments.Count();
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                // Apply pagination
+                filteredDocuments = filteredDocuments
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize);
+
+                // Map to view models
+                var documentViewModels = filteredDocuments.Select(d => new DocumentViewModel
                 {
                     Id = d.Id,
                     TemplateId = d.DocumentTemplateId,
@@ -57,7 +160,32 @@ namespace DocumentManager.Web.Controllers
                     GeneratedFilePath = d.GeneratedFilePath
                 }).ToList();
 
-                return View(viewModels);
+                // Get all templates for the filter dropdown
+                var templates = await _templateService.GetAllTemplatesAsync();
+                var templateViewModels = templates.Select(t => new DocumentTemplateViewModel
+                {
+                    Id = t.Id,
+                    Code = t.Code,
+                    Name = t.Name,
+                    Type = t.Type,
+                    IsActive = t.IsActive
+                }).ToList();
+
+                // Set ViewBag for filtering and pagination
+                ViewBag.FactoryNumber = factoryNumber;
+                ViewBag.TemplateId = templateId;
+                ViewBag.DateFrom = dateFrom?.ToString("yyyy-MM-dd");
+                ViewBag.DateTo = dateTo?.ToString("yyyy-MM-dd");
+                ViewBag.Search = search;
+                ViewBag.ViewMode = viewMode;
+                ViewBag.Templates = templateViewModels;
+                ViewBag.CurrentPage = page;
+                ViewBag.TotalPages = totalPages;
+                ViewBag.TotalItems = totalCount;
+                ViewBag.StartItem = Math.Min(totalCount, (page - 1) * pageSize + 1);
+                ViewBag.EndItem = Math.Min(totalCount, page * pageSize);
+
+                return View(documentViewModels);
             }
             catch (Exception ex)
             {
@@ -66,6 +194,7 @@ namespace DocumentManager.Web.Controllers
                 return View(new List<DocumentViewModel>());
             }
         }
+
 
         // GET: Documents/Create
         public async Task<IActionResult> Create()
@@ -354,7 +483,8 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        // GET: Documents/Generate/5
+        [HttpGet]
+        [Route("Documents/GenerateAsync/{id}")]
         public IActionResult GenerateAsync(int id)
         {
             try
@@ -381,6 +511,7 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
+
 
         private async Task GenerateDocument(int documentId, string operationId)
         {

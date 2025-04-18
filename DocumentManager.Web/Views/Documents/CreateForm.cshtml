@@ -4,121 +4,316 @@
     ViewData["Title"] = "Создание документа";
 }
 
-<h1>Создание документа</h1>
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h1 class="display-6 mb-0">
+            <i class="bi bi-file-earmark-plus text-primary me-2"></i> Создание документа
+        </h1>
+        <p class="text-muted mt-2">@Model.TemplateName</p>
+    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <a href="@Url.Action("Create", "Documents")" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к выбору шаблона
+        </a>
+    </div>
+</div>
 
-<h4>@Model.TemplateName</h4>
-<hr />
-
-<form asp-action="CreateForm" method="post">
+<form asp-action="CreateForm" method="post" id="documentForm">
     <input type="hidden" name="templateId" value="@Model.TemplateId" />
 
     <div class="row">
+        <!-- Левая колонка - Основные поля -->
         <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    Основные данные
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-pencil-square text-primary me-2"></i> Данные документа
+                    </h5>
                 </div>
                 <div class="card-body">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-
-                    @foreach (var field in Model.Fields)
+                    @if (!ViewData.ModelState.IsValid)
                     {
-                        <div class="form-group mb-3">
-                            <label for="@field.FieldName">@field.FieldLabel @(field.IsRequired ? "*" : "")</label>
+                        <div class="alert alert-danger mb-4">
+                            <div asp-validation-summary="ModelOnly" class="mb-0"></div>
+                        </div>
+                    }
 
-                            @if (field.FieldType == "select" && field.Options.Any())
-                            {
-                                <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="form-control" required="@field.IsRequired">
-                                    <option value="">-- Выберите --</option>
-                                    @foreach (var option in field.Options)
-                                    {
-                                        <option value="@option" selected="@(option == field.Value)">@option</option>
-                                    }
-                                </select>
-                            }
-                            else if (field.FieldType == "date")
-                            {
-                                <input type="date" name="fieldValues[@field.FieldName]" id="@field.FieldName" class="form-control" value="@field.Value" required="@field.IsRequired" />
-                            }
-                            else
-                            {
-                                <input type="text" name="fieldValues[@field.FieldName]" id="@field.FieldName" class="form-control" value="@field.Value" required="@field.IsRequired" />
-                            }
+                    <!-- Группируем поля по категориям -->
+                    @{
+                        // Важные поля (заводской номер и основные параметры)
+                        var primaryFields = Model.Fields.Where(f => f.FieldName == "FactoryNumber" || f.IsUnique || f.FieldName.Contains("Number")).ToList();
 
-                            <span class="text-danger field-validation-valid" data-valmsg-for="@field.FieldName" data-valmsg-replace="true"></span>
+                        // Поля с датами
+                        var dateFields = Model.Fields.Where(f => f.FieldType == "date").ToList();
 
-                            @if (field.IsUnique)
-                            {
-                                <small class="form-text text-muted">Это поле должно быть уникальным</small>
-                            }
+                        // Остальные поля
+                        var otherFields = Model.Fields.Except(primaryFields).Except(dateFields).ToList();
+                    }
+
+                    @if (primaryFields.Any())
+                    {
+                        <div class="primary-fields mb-4">
+                            <h6 class="border-bottom pb-2 mb-3">Основные параметры</h6>
+                            <div class="row g-3">
+                                @foreach (var field in primaryFields)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            @{
+                                                bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
+                                                string cssClass = hasError ? "form-control is-invalid" : "form-control";
+                                            }
+
+                                            @if (field.FieldType == "select" && field.Options.Any())
+                                            {
+                                                <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="@cssClass">
+                                                    <option value="">-- Выберите --</option>
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        if (option == field.Value)
+                                                        {
+                                                            <option value="@option" selected>@option</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="@option">@option</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input type="text"
+                                                       name="fieldValues[@field.FieldName]"
+                                                       id="@field.FieldName"
+                                                       class="@cssClass"
+                                                       value="@field.Value"
+                                                       required="@field.IsRequired"
+                                                       placeholder="@field.FieldLabel" />
+                                            }
+
+                                            <label for="@field.FieldName">
+                                                @field.FieldLabel @(field.IsRequired ? "*" : "")
+                                            </label>
+
+                                            @if (hasError)
+                                            {
+                                                <div class="invalid-feedback">
+                                                    @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                </div>
+                                            }
+
+                                            @if (field.IsUnique)
+                                            {
+                                                <div class="form-text small">Должно быть уникальным</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (dateFields.Any())
+                    {
+                        <div class="date-fields mb-4">
+                            <h6 class="border-bottom pb-2 mb-3">Даты</h6>
+                            <div class="row g-3">
+                                @foreach (var field in dateFields)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            @{
+                                                bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
+                                                string cssClass = hasError ? "form-control is-invalid" : "form-control";
+                                            }
+
+                                            <input type="date"
+                                                   name="fieldValues[@field.FieldName]"
+                                                   id="@field.FieldName"
+                                                   class="@cssClass"
+                                                   value="@field.Value"
+                                                   required="@field.IsRequired"
+                                                   placeholder="@field.FieldLabel" />
+
+                                            <label for="@field.FieldName">
+                                                @field.FieldLabel @(field.IsRequired ? "*" : "")
+                                            </label>
+
+                                            @if (hasError)
+                                            {
+                                                <div class="invalid-feedback">
+                                                    @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (otherFields.Any())
+                    {
+                        <div class="other-fields">
+                            <h6 class="border-bottom pb-2 mb-3">Дополнительная информация</h6>
+                            <div class="row g-3">
+                                @foreach (var field in otherFields)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            @{
+                                                bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
+                                                string cssClass = hasError ? "form-control is-invalid" : "form-control";
+                                            }
+
+                                            @if (field.FieldType == "select" && field.Options.Any())
+                                            {
+                                                <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="@cssClass">
+                                                    <option value="">-- Выберите --</option>
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        if (option == field.Value)
+                                                        {
+                                                            <option value="@option" selected>@option</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="@option">@option</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input type="text"
+                                                       name="fieldValues[@field.FieldName]"
+                                                       id="@field.FieldName"
+                                                       class="@cssClass"
+                                                       value="@field.Value"
+                                                       required="@field.IsRequired"
+                                                       placeholder="@field.FieldLabel" />
+                                            }
+
+                                            <label for="@field.FieldName">
+                                                @field.FieldLabel @(field.IsRequired ? "*" : "")
+                                            </label>
+
+                                            @if (hasError)
+                                            {
+                                                <div class="invalid-feedback">
+                                                    @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     }
                 </div>
             </div>
         </div>
 
+        <!-- Правая колонка - Связанные документы -->
         <div class="col-md-4">
             <div class="card">
-                <div class="card-header">
-                    Связанные документы
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-diagram-3 text-primary me-2"></i> Связанные документы
+                    </h5>
                 </div>
                 <div class="card-body">
-                    @if (Model.RelatedTemplates.Any())
+                    @if (Model.RelatedTemplates != null && Model.RelatedTemplates.Any())
                     {
-                        <p>Выберите упаковочные листы, которые нужно создать вместе с паспортом:</p>
+                        <p>Выберите связанные документы для создания:</p>
 
-                        @foreach (var relatedTemplate in Model.RelatedTemplates)
-                        {
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="selectedRelatedTemplateIds" value="@relatedTemplate.Id" id="related-@relatedTemplate.Id" checked="@Model.SelectedRelatedTemplateIds.Contains(relatedTemplate.Id)" />
-                                <label class="form-check-label" for="related-@relatedTemplate.Id">
-                                    @relatedTemplate.Name
-                                </label>
-                            </div>
-                        }
+                        <div class="related-templates-list">
+                            @foreach (var relatedTemplate in Model.RelatedTemplates)
+                            {
+                                <div class="form-check mb-3">
+                                    @if (Model.SelectedRelatedTemplateIds != null && Model.SelectedRelatedTemplateIds.Contains(relatedTemplate.Id))
+                                    {
+                                        <input class="form-check-input" type="checkbox" name="selectedRelatedTemplateIds" value="@relatedTemplate.Id" id="related-@relatedTemplate.Id" checked />
+                                    }
+                                    else
+                                    {
+                                        <input class="form-check-input" type="checkbox" name="selectedRelatedTemplateIds" value="@relatedTemplate.Id" id="related-@relatedTemplate.Id" />
+                                    }
+                                    <label class="form-check-label" for="related-@relatedTemplate.Id">
+                                        <div class="fw-semibold">@relatedTemplate.Name</div>
+                                        <div class="text-muted small">@relatedTemplate.Type</div>
+                                    </label>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="alert alert-info mt-3 small">
+                            <i class="bi bi-info-circle"></i> Связанные документы будут созданы автоматически с тем же заводским номером.
+                        </div>
                     }
                     else
                     {
-                        <p class="text-muted">Нет доступных связанных документов</p>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Связанные документы не найдены или недоступны для данного шаблона.
+                        </div>
                     }
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="form-group mt-3">
-        <button type="submit" class="btn btn-primary">Создать</button>
-        <a asp-action="Create" class="btn btn-secondary">Отмена</a>
+    <div class="action-buttons mt-4 mb-5">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-save me-1"></i> Создать документ
+        </button>
+        <a href="@Url.Action("Create", "Documents")" class="btn btn-outline-secondary btn-lg ms-2">
+            <i class="bi bi-x"></i> Отмена
+        </a>
     </div>
 </form>
 
 @section Scripts {
     <script>
-        // Динамическое отображение полей в зависимости от условий
-        function updateFieldVisibility() {
-            var variantField = document.getElementById('Variant');
-            if (variantField) {
-                var selectedVariant = variantField.value;
+        $(document).ready(function () {
+            // Функция для управления зависимыми полями
+            function updateFieldDependencies() {
+                // Находим все поля с зависимостями
+                $('[data-depends-on]').each(function () {
+                    const $field = $(this);
+                    const dependsOn = $field.data('depends-on');
+                    const dependsValue = $field.data('depends-value');
+                    const $parent = $field.closest('.form-group, .col-md-6');
 
-                document.querySelectorAll('[data-condition-field="Variant"]').forEach(function(element) {
-                    var conditionValue = element.getAttribute('data-condition-value');
-                    if (conditionValue === selectedVariant) {
-                        element.style.display = 'block';
+                    // Получаем значение поля, от которого зависит текущее
+                    const $dependField = $('#' + dependsOn);
+                    const dependFieldValue = $dependField.val();
+
+                    // Показываем/скрываем поле в зависимости от значения
+                    if (dependsValue === dependFieldValue) {
+                        $parent.show();
                     } else {
-                        element.style.display = 'none';
+                        $parent.hide();
                     }
                 });
             }
-        }
 
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            updateFieldVisibility();
+            // Обновляем при загрузке страницы
+            updateFieldDependencies();
 
-            var variantField = document.getElementById('Variant');
-            if (variantField) {
-                variantField.addEventListener('change', updateFieldVisibility);
-            }
+            // Обновляем при изменении полей
+            $('select, input').change(function () {
+                updateFieldDependencies();
+            });
+
+            // Заполнение текущей даты для полей с датами
+            $('input[type="date"]').each(function () {
+                const $this = $(this);
+                if (!$this.val()) {
+                    const today = new Date().toISOString().split('T')[0];
+                    $this.val(today);
+                }
+            });
         });
     </script>
 }

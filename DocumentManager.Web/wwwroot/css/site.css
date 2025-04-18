@@ -1,327 +1,291 @@
-/* DocumentManager.Web/wwwroot/css/site.css */
+/* Дополнительные стили для системы управления документами */
 
-/* Основные стили */
-html {
-    font-size: 14px;
+:root {
+    --primary-color: #2b5797;
+    --secondary-color: #5f8fcf;
+    --accent-color: #f0f7ff;
+    --dark-color: #1c3a63;
+    --light-color: #f8f9fa;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
 }
 
-@media (min-width: 768px) {
-    html {
-        font-size: 16px;
-    }
-}
-
-html {
-    position: relative;
-    min-height: 100%;
-}
-
+/* Общие стили */
 body {
-    margin-bottom: 60px;
-    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    color: #333;
 }
 
-/* Стили для полоски прогресса */
-.progress {
-    height: 25px;
-    margin-bottom: 20px;
-    overflow: hidden;
-    background-color: #f5f5f5;
-    border-radius: 4px;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.progress-bar {
-    float: left;
-    width: 0%;
-    height: 100%;
-    font-size: 16px;
-    line-height: 25px;
-    color: #fff;
-    text-align: center;
-    background-color: #337ab7;
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
-    transition: width 0.6s ease;
-}
-
-.progress-bar-striped {
-    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
-    background-size: 40px 40px;
-}
-
-.progress-bar-animated {
-    animation: progress-bar-stripes 2s linear infinite;
-}
-
-@keyframes progress-bar-stripes {
-    from {
-        background-position: 40px 0;
-    }
-
-    to {
-        background-position: 0 0;
-    }
-}
-
-/* Стили для карточек */
-.card {
-    margin-bottom: 20px;
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-    border-bottom: none;
-    padding: 15px 20px;
-    font-weight: 600;
-    border-radius: 8px 8px 0 0 !important;
-}
-
-.card-body {
-    padding: 20px;
-}
-
-/* Стили для кнопок */
-.btn {
-    font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-}
-
+/* Кнопки */
 .btn-primary {
-    background-color: #3b7ddd;
-    border-color: #3b7ddd;
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
 }
 
     .btn-primary:hover {
-        background-color: #336ec2;
-        border-color: #336ec2;
+        background-color: var(--dark-color);
+        border-color: var(--dark-color);
     }
 
-.btn-success {
-    background-color: #28a745;
-    border-color: #28a745;
+.btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
 }
 
-    .btn-success:hover {
-        background-color: #218838;
-        border-color: #1e7e34;
+    .btn-outline-primary:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
     }
 
-.btn-danger {
-    background-color: #dc3545;
-    border-color: #dc3545;
+/* Карточки */
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 1.5rem;
 }
 
-    .btn-danger:hover {
-        background-color: #c82333;
-        border-color: #bd2130;
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.07);
     }
 
-.btn-secondary {
-    background-color: #6c757d;
-    border-color: #6c757d;
+.card-header {
+    border-bottom: none;
+    background-color: white;
+    padding: 1.25rem 1.5rem;
 }
 
-    .btn-secondary:hover {
-        background-color: #5a6268;
-        border-color: #545b62;
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Карточки документов */
+.document-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+    .document-card .document-type {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--secondary-color);
     }
 
-/* Стили для таблиц */
-.table {
+    .document-card .document-number {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+
+    .document-card .document-date {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    .document-card .document-author {
+        color: #6c757d;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+    }
+
+    .document-card .document-actions {
+        margin-top: auto;
+        padding-top: 1rem;
+    }
+
+/* Панель боковая */
+.document-sidebar {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 400px;
+    height: 100vh;
+    background-color: white;
+    z-index: 1050;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    transition: right 0.3s ease-in-out;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+    .document-sidebar.show {
+        right: 0;
+    }
+
+.sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1040;
+    display: none;
+}
+
+    .sidebar-backdrop.show {
+        display: block;
+    }
+
+.document-sidebar-content {
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+}
+
+.sidebar-section-title {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+    color: #2b5797;
+}
+
+/* Sidebar */
+.sidebar {
+    background-color: var(--primary-color);
+    color: white;
+    min-height: 100vh;
+    transition: all 0.3s;
+}
+
+    .sidebar .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        padding: 0.8rem 1rem;
+        margin: 0.2rem 0;
+        border-radius: 5px;
+        transition: all 0.2s;
+    }
+
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar .nav-link i {
+            margin-right: 0.5rem;
+        }
+
+/* Панель фильтров */
+.filter-panel {
+    background-color: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* Прогресс генерации */
+.progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.progress-step {
+    display: flex;
+    gap: 1rem;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+}
+
+    .progress-step.active {
+        opacity: 1;
+    }
+
+.step-icon {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-title {
+    margin-bottom: 0.25rem;
+}
+
+.step-desc {
+    font-size: 0.875rem;
+    color: #6c757d;
     margin-bottom: 0;
 }
 
-    .table th {
-        font-weight: 600;
-        border-top: none;
-    }
-
-.table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(0, 0, 0, 0.02);
+.spinner-container {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
 }
 
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.04);
-}
-
-/* Стили для форм */
-.form-control {
-    border-radius: 4px;
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-}
-
-    .form-control:focus {
-        border-color: #80bdff;
-        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-    }
-
-/* Стили для подсказок */
-.tooltip {
+.check-icon, .error-icon {
     position: absolute;
-    z-index: 1070;
-    display: block;
-    margin: 0;
-    font-family: inherit;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1.5;
-    text-align: left;
-    text-decoration: none;
-    text-shadow: none;
-    text-transform: none;
-    letter-spacing: normal;
-    word-break: normal;
-    word-spacing: normal;
-    white-space: normal;
-    line-break: auto;
-    font-size: 0.875rem;
-    word-wrap: break-word;
-    opacity: 0;
-}
-
-/* Стили для уведомлений */
-.alert {
-    border-radius: 4px;
-    border: none;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.alert-success {
-    color: #155724;
-    background-color: #d4edda;
-}
-
-.alert-danger {
-    color: #721c24;
-    background-color: #f8d7da;
-}
-
-.alert-warning {
-    color: #856404;
-    background-color: #fff3cd;
-}
-
-.alert-info {
-    color: #0c5460;
-    background-color: #d1ecf1;
-}
-
-/* Иконки Bootstrap */
-@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css");
-
-/* Стили для навбара */
-.navbar {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    background-color: #fff !important;
-}
-
-.navbar-brand {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #3b7ddd !important;
-}
-
-.nav-link {
-    font-weight: 500;
-}
-
-/* Стили для подвала */
-.footer {
-    position: absolute;
-    bottom: 0;
+    top: 0;
+    left: 0;
     width: 100%;
-    line-height: 60px;
-    border-top: 1px solid #dee2e6;
-    background-color: #fff;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Стили для страницы входа */
-.login-container {
-    max-width: 400px;
-    margin: 100px auto;
+/* Анимация */
+.fade-in {
+    animation: fadeIn 0.3s;
 }
 
-/* Стили для бейджей */
-.badge {
-    padding: 5px 10px;
-    font-weight: 500;
-    border-radius: 30px;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
-/* Стили для уровней заголовков */
-h1 {
-    font-size: 2rem;
-    margin-bottom: 1.5rem;
-    font-weight: 600;
-    color: #3b7ddd;
+/* Медиа-запросы для адаптивности */
+@media (max-width: 992px) {
+    .document-sidebar {
+        width: 100%;
+        right: -100%;
+    }
 }
 
-h2 {
-    font-size: 1.75rem;
-    margin-bottom: 1.25rem;
-    font-weight: 600;
-}
-
-h3 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-    font-weight: 600;
-}
-
-h4 {
-    font-size: 1.25rem;
-    margin-bottom: 0.75rem;
-    font-weight: 600;
-}
-
-h5 {
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-}
-
-/* Стили для предпросмотра кода */
-pre {
-    background-color: #f8f9fa;
-    border: 1px solid #eaeaea;
-    border-radius: 4px;
-    padding: 15px;
-    font-family: Monaco, Consolas, "Courier New", monospace;
-    font-size: 0.9rem;
-}
-
-/* Стили для текстовых областей с кодом */
-textarea.form-control.font-monospace {
-    font-family: Monaco, Consolas, "Courier New", monospace;
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-/* Стили для мобильных устройств */
 @media (max-width: 768px) {
-    .card-header {
-        padding: 12px 15px;
+    .card-header, .card-body {
+        padding: 1rem;
     }
 
-    .card-body {
-        padding: 15px;
-    }
-
-    .btn {
-        padding: 6px 12px;
-    }
-
-    h1 {
-        font-size: 1.75rem;
-    }
-
-    .navbar-brand {
-        font-size: 1.25rem;
+    .filter-panel {
+        padding: 1rem;
     }
 }
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
