@@ -554,7 +554,10 @@ namespace DocumentManager.Web.Controllers
                     return;
                 }
 
-                // Формируем абсолютный URL с ведущим слешем, чтобы гарантировать правильное формирование пути
+                // Получаем связанные документы (упаковочные листы)
+                var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(documentId);
+
+                // Формируем абсолютный URL с ведущим слешем
                 string downloadUrl = $"/Documents/Download/{documentId}";
 
                 // Получаем значения полей
@@ -562,25 +565,50 @@ namespace DocumentManager.Web.Controllers
 
                 _progressService.UpdateProgress(operationId, 20, "Подготовка шаблона...");
 
-                // Генерируем документ
+                // Генерируем основной документ
                 try
                 {
-                    _progressService.UpdateProgress(operationId, 30, "Генерация документа...");
+                    _progressService.UpdateProgress(operationId, 30, "Генерация основного документа...");
 
                     // Вызываем сервис генерации с собранными данными
                     var generationResult = await _documentGenerationService.GenerateDocumentAsync(documentId);
                     string filePath = generationResult.FilePath;
                     byte[] content = generationResult.Content;
 
-                    _progressService.UpdateProgress(operationId, 70, "Сохранение документа...");
+                    _progressService.UpdateProgress(operationId, 50, "Сохранение основного документа...");
 
                     // Обновляем путь к сгенерированному файлу и содержимое
                     await _documentService.UpdateDocumentContentAsync(documentId, content, filePath);
 
+                    // Генерируем связанные документы
+                    if (relatedDocuments != null && relatedDocuments.Any())
+                    {
+                        _progressService.UpdateProgress(operationId, 60, $"Генерация связанных документов ({relatedDocuments.Count()})...");
+                        int current = 0;
+                        foreach (var relatedDoc in relatedDocuments)
+                        {
+                            current++;
+                            _progressService.UpdateProgress(operationId, 60 + (current * 20 / relatedDocuments.Count()),
+                                $"Генерация связанного документа {current}/{relatedDocuments.Count()}...");
+
+                            try
+                            {
+                                var relatedResult = await _documentGenerationService.GenerateDocumentAsync(relatedDoc.Id);
+                                await _documentService.UpdateDocumentContentAsync(relatedDoc.Id, relatedResult.Content, relatedResult.FilePath);
+                                _logger.LogInformation($"Успешно сгенерирован связанный документ ID {relatedDoc.Id}");
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, $"Ошибка при генерации связанного документа ID {relatedDoc.Id}");
+                                // Продолжаем генерацию других связанных документов
+                            }
+                        }
+                    }
+
                     _progressService.UpdateProgress(operationId, 90, "Завершение...");
 
                     // Используем заранее сформированный URL
-                    _progressService.CompleteOperation(operationId, "Документ успешно сгенерирован");
+                    _progressService.CompleteOperation(operationId, "Документы успешно сгенерированы");
                     _progressService.GetProgress(operationId).Result = downloadUrl;
                 }
                 catch (Exception ex)

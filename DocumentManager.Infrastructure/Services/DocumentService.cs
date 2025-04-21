@@ -124,12 +124,28 @@ namespace DocumentManager.Infrastructure.Services
                                 {
                                     DocumentId = document.Id,
                                     DocumentFieldId = field.Id,
-                                    Value = value
+                                    Value = value ?? string.Empty 
                                 };
 
                                 context.DocumentValues.Add(documentValue);
-                                _logger.LogDebug($"Добавлено значение для поля {field.FieldName}: {value}");
+                                _logger.LogDebug($"Добавлено значение для поля {field.FieldName}: {value ?? "(пусто)"}");
                             }
+                            else if (field.IsRequired)
+                            {
+                                // Для обязательных полей добавляем значение по умолчанию или пустую строку
+                                var defaultValue = !string.IsNullOrEmpty(field.DefaultValue) ? field.DefaultValue : string.Empty;
+
+                                var documentValue = new DocumentValue
+                                {
+                                    DocumentId = document.Id,
+                                    DocumentFieldId = field.Id,
+                                    Value = defaultValue
+                                };
+
+                                context.DocumentValues.Add(documentValue);
+                                _logger.LogDebug($"Добавлено значение для обязательного поля {field.FieldName}: {defaultValue}");
+                            }
+                            // Для необязательных полей без значения ничего не делаем
                         }
 
                         await context.SaveChangesAsync();
