@@ -1,0 +1,228 @@
+﻿
+@model PrintViewModel
+
+@{
+    ViewData["Title"] = "Печать документа";
+}
+
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <!-- Панель управления печатью -->
+        <div class="col-md-3 print-panel d-print-none" style="height: 100vh; overflow-y: auto; background-color: #f8f9fa; border-right: 1px solid #dee2e6; padding: 20px;">
+            <div class="d-flex align-items-center mb-4">
+                <i class="bi bi-printer fs-3 text-primary me-2"></i>
+                <h4 class="mb-0">Печать документа</h4>
+            </div>
+
+            <div class="document-info mb-4">
+                <h5>Информация о документе</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <dl class="mb-0">
+                            <dt>Наименование</dt>
+                            <dd>@Model.DocumentName</dd>
+
+                            <dt>Заводской номер</dt>
+                            <dd>@Model.FactoryNumber</dd>
+
+                            <dt>Создан</dt>
+                            <dd>@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+
+                            <dt>Автор</dt>
+                            <dd>@Model.CreatedBy</dd>
+
+                            <dt>Тип файла</dt>
+                            <dd>@Model.DocumentType.ToUpper()</dd>
+
+                            <dt>Размер</dt>
+                            <dd>@(Model.FileSize / 1024) КБ</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-actions mb-4">
+                <h5>Действия</h5>
+
+                <div class="d-grid gap-2">
+                    <button id="printDocumentBtn" class="btn btn-primary">
+                        <i class="bi bi-printer"></i> Печать документа
+                    </button>
+
+                    <a href="@Url.Action("Download", "Documents", new { id = Model.DocumentId })" class="btn btn-outline-secondary">
+                        <i class="bi bi-download"></i> Скачать документ
+                    </a>
+
+                    <a href="@Url.Action("Details", "Documents", new { id = Model.DocumentId })" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Вернуться к документу
+                    </a>
+                </div>
+            </div>
+
+            <div class="print-help">
+                <h5>Инструкция</h5>
+                <div class="alert alert-info">
+                    <p><i class="bi bi-info-circle me-2"></i> Для печати документа:</p>
+                    <ol class="mb-0">
+                        <li>Нажмите кнопку "Печать документа"</li>
+                        <li>В появившемся диалоговом окне выберите принтер</li>
+                        <li>Настройте параметры печати (при необходимости)</li>
+                        <li>Нажмите "Печать"</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Область просмотра документа -->
+        <div class="col-md-9 document-viewer" style="height: 100vh;">
+            <iframe id="documentFrame" src="@Url.Action("GetDocumentContent", "Documents", new { id = Model.DocumentId })"
+                    style="width: 100%; height: 100%; border: none;" frameborder="0"></iframe>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container-fluid {
+        padding: 0;
+        margin: 0;
+        max-width: 100%;
+    }
+
+    /* Стили для печати */
+    @@media print {
+        .print-panel {
+            display: none !important;
+        }
+
+        .document-viewer {
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        iframe {
+            height: auto !important;
+            width: 100% !important;
+        }
+    }
+</style>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Кнопка печати документа - использует встроенную функцию печати
+            document.getElementById('printDocumentBtn').addEventListener('click', function() {
+                // Фокусируемся на iframe перед печатью
+                try {
+                    const iframe = document.getElementById('documentFrame');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    } else {
+                        window.print();
+                    }
+                } catch (e) {
+                    console.error('Ошибка при печати:', e);
+                    window.print(); // Запасной вариант
+                }
+            });
+
+            // Обработка событий загрузки iframe
+            const iframe = document.getElementById('documentFrame');
+
+            if (iframe) {
+                iframe.onload = function() {
+                    // Проверяем, загрузился ли документ
+                    try {
+                        const doc = iframe.contentDocument || iframe.contentWindow.document;
+                        if (doc.body.innerHTML === '') {
+                            // Если тело документа пустое, вероятно произошла ошибка загрузки
+                            showDocumentError();
+                        }
+                    } catch (e) {
+                        // В случае ошибки доступа (например, Cross-Origin)
+                        console.log('Документ загружен, но невозможно проверить содержимое:', e);
+                    }
+                };
+
+                iframe.onerror = function() {
+                    showDocumentError();
+                };
+            }
+
+            function showDocumentError() {
+                const viewer = document.querySelector('.document-viewer');
+                if (viewer) {
+                    viewer.innerHTML = `
+                        <div class="d-flex flex-column align-items-center justify-content-center h-100 p-4">
+                            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 5rem;"></i>
+                            <h3 class="mt-3">Не удалось загрузить документ для просмотра</h3>
+                            <p class="text-muted">Возможно, браузер не поддерживает этот формат документа.</p>
+                            <p>Вы можете скачать документ и распечатать его с помощью внешней программы:</p>
+                            <a href="${'@Url.Action("Download", "Documents", new { id = Model.DocumentId })'}"
+                               class="btn btn-primary mt-2">
+                                <i class="bi bi-download"></i> Скачать документ
+                            </a>
+                        </div>
+                    `;
+                }
+            }
+
+            // Автоматическая печать по параметру в URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('print') === 'true') {
+                setTimeout(function() {
+                    document.getElementById('printDocumentBtn').click();
+                }, 1500); // Задержка для полной загрузки документа
+            }
+
+
+
+            function printDocument(documentId, documentType) {
+                const isIE = false || !!document.documentMode;
+                const isEdge = !isIE && !!window.StyleMedia;
+                const isChrome = !!window.chrome && (!!window.chrome.webstore || !!window.chrome.runtime);
+                const isFirefox = typeof InstallTrigger !== 'undefined';
+                const isSafari = /constructor/i.test(window.HTMLElement) || 
+                    (function (p) { return p.toString() === "[object SafariRemoteNotification]"; })
+                    (!window['safari'] || (typeof safari !== 'undefined' && safari.pushNotification));
+                const iframe = document.getElementById('documentFrame');
+
+                try {
+                    // Специфичные действия для разных браузеров
+                    if (isChrome || isFirefox) {
+                        // Chrome и Firefox обычно хорошо печатают через iframe
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    } else if (isIE || isEdge) {
+                        // IE и Edge могут иметь проблемы с печатью через iframe
+                        // Открываем документ в новой вкладке для печати
+                        window.open('/Documents/GetDocumentContent/' + documentId, '_blank');
+                    } else {
+                        // Для других браузеров пытаемся использовать встроенный механизм печати
+                        if (iframe.contentWindow) {
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                        } else {
+                            // Как запасной вариант, печатаем всю страницу
+                            window.print();
+                        }
+                    }
+                } catch (e) {
+                    console.error('Ошибка при печати:', e);
+
+                    // Если произошла ошибка, предлагаем скачать документ
+                    if (confirm('Возникла проблема при печати документа. Хотите скачать документ и распечатать его с помощью внешней программы?')) {
+                        window.location.href = '/Documents/Download/' + documentId;
+                    }
+                }
+            }
+
+        });
+    </script>
+}

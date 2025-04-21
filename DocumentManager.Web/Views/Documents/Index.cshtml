@@ -157,7 +157,7 @@ else
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item" href="@Url.Action("Print", "Documents", new { id = document.Id })" target="_blank">
+                                            <a class="dropdown-item" href="@Url.Action("PrintInBrowser", "Documents", new { id = document.Id })">
                                                 <i class="bi bi-printer"></i> Печать
                                             </a>
                                         </li>
@@ -242,7 +242,7 @@ else
                                                         </a>
                                                     </li>
                                                     <li>
-                                                        <a class="dropdown-item" href="@Url.Action("Print", "Documents", new { id = document.Id })" target="_blank">
+                                                        <a class="dropdown-item" href="@Url.Action("PrintInBrowser", "Documents", new { id = document.Id })">
                                                             <i class="bi bi-printer"></i> Печать
                                                         </a>
                                                     </li>

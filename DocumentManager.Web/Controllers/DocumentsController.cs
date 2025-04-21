@@ -674,78 +674,7 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        public async Task<IActionResult> Print(int id)
-        {
-            try
-            {
-                var document = await _documentService.GetDocumentByIdAsync(id);
 
-                if (document == null)
-                {
-                    _logger.LogWarning($"Документ с ID {id} не найден");
-                    return NotFound();
-                }
-
-                byte[] fileBytes;
-                string contentType;
-
-                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
-                {
-                    _logger.LogInformation($"Печать документа ID {id} из содержимого в БД");
-                    fileBytes = document.DocumentContent;
-                }
-                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
-                {
-                    _logger.LogInformation($"Печать документа ID {id} из файла на диске");
-                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
-                }
-                else
-                {
-                    _logger.LogInformation($"Генерация документа ID {id} для печати");
-                    var (filePath, content) = await _documentGenerationService.GenerateDocumentAsync(id);
-                    fileBytes = content;
-
-                    // Обновляем документ в базе данных
-                    await _documentService.UpdateDocumentContentAsync(id, content, filePath);
-                }
-
-                // Проверка, что мы действительно получили содержимое файла
-                if (fileBytes == null || fileBytes.Length == 0)
-                {
-                    _logger.LogError($"Содержимое документа пустое для ID {id}");
-                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа. Пожалуйста, попробуйте сгенерировать документ заново.";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
-                // Определяем тип контента
-                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
-
-                if (extension == ".docx")
-                {
-                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                }
-                else
-                {
-                    contentType = "application/msword";
-                }
-
-                // Создаем безопасное имя файла только из латинских букв, цифр и безопасных символов
-                string safeFileName = $"document_{id}_{DateTime.Now:yyyyMMdd}{extension}";
-
-                _logger.LogInformation($"Отправка файла на печать: {safeFileName}, размер: {fileBytes.Length} байт");
-
-                // Установка заголовка для открытия файла в браузере вместо скачивания
-                Response.Headers.Add("Content-Disposition", "inline");
-
-                return File(fileBytes, contentType);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при печати документа ID {id}");
-                TempData["ErrorMessage"] = $"Ошибка при печати документа: {ex.Message}";
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
 
         [HttpGet]
         [Route("Documents/Download/{id}")]
@@ -893,6 +822,123 @@ namespace DocumentManager.Web.Controllers
                 _logger.LogError(ex, $"Ошибка при удалении документа ID {id}");
                 TempData["ErrorMessage"] = $"Ошибка при удалении документа: {ex.Message}";
                 return RedirectToAction(nameof(Index));
+            }
+        }
+
+        [HttpGet]
+        [Route("Documents/PrintInBrowser/{id}")]
+        public async Task<IActionResult> PrintInBrowser(int id)
+        {
+            try
+            {
+                var document = await _documentService.GetDocumentByIdAsync(id);
+
+                if (document == null)
+                {
+                    _logger.LogWarning($"Документ с ID {id} не найден");
+                    return NotFound();
+                }
+
+                // Проверяем существование документа
+                if (document.DocumentContent == null && string.IsNullOrWhiteSpace(document.GeneratedFilePath))
+                {
+                    _logger.LogWarning($"Документ с ID {id} ещё не сгенерирован");
+                    TempData["WarningMessage"] = "Документ ещё не сгенерирован. Пожалуйста, сгенерируйте его перед печатью.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                // Получаем данные документа
+                byte[] fileBytes;
+                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
+                {
+                    fileBytes = document.DocumentContent;
+                }
+                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
+                {
+                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
+                }
+                else
+                {
+                    _logger.LogWarning($"Содержимое документа ID {id} не найдено");
+                    TempData["WarningMessage"] = "Содержимое документа не найдено. Пожалуйста, сгенерируйте его снова.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                // Создаем модель для страницы печати
+                var model = new PrintViewModel
+                {
+                    DocumentId = id,
+                    DocumentName = document.DocumentTemplate.Name,
+                    FactoryNumber = document.FactoryNumber,
+                    CreatedAt = document.CreatedAt,
+                    CreatedBy = document.CreatedBy,
+                    DocumentType = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant(),
+                    FileSize = fileBytes.Length
+                };
+
+                return View("PrintDocument", model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при подготовке печати документа ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка при печати документа: {ex.Message}";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
+        // Метод для получения содержимого документа
+        [HttpGet]
+        [Route("Documents/GetDocumentContent/{id}")]
+        public async Task<IActionResult> GetDocumentContent(int id)
+        {
+            try
+            {
+                var document = await _documentService.GetDocumentByIdAsync(id);
+
+                if (document == null)
+                {
+                    return NotFound();
+                }
+
+                byte[] fileBytes;
+
+                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
+                {
+                    fileBytes = document.DocumentContent;
+                }
+                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
+                {
+                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
+                }
+                else
+                {
+                    var result = await _documentGenerationService.GenerateDocumentAsync(id);
+                    fileBytes = result.Content;
+                    await _documentService.UpdateDocumentContentAsync(id, result.Content, result.FilePath);
+                }
+
+                // Определяем тип контента
+                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
+                string contentType;
+
+                if (extension == ".docx")
+                {
+                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                }
+                else
+                {
+                    contentType = "application/msword";
+                }
+
+                // Установка заголовка для встраивания файла
+                Response.Headers.Add("Content-Disposition", "inline");
+
+                return File(fileBytes, contentType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при получении содержимого документа ID {id}");
+                return StatusCode(500, "Ошибка при получении документа");
             }
         }
     }
