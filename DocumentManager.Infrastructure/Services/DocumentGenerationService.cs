@@ -36,7 +36,7 @@ namespace DocumentManager.Infrastructure.Services
 
             if (document == null)
             {
-                throw new ArgumentException($"Document with ID {documentId} not found");
+                throw new ArgumentException($"Документ с ID {documentId} не найден");
             }
 
             var templatePath = document.DocumentTemplate.WordTemplatePath;
@@ -85,16 +85,24 @@ namespace DocumentManager.Infrastructure.Services
             byte[] documentContent;
 
             // Выбираем метод обработки в зависимости от расширения файла
-            if (extension == ".docx")
+            try
             {
-                _logger.LogInformation("Обработка файла DOCX");
-                documentContent = await ProcessDocxFileImproved(fullTemplatePath, fieldValues);
+                if (extension == ".docx")
+                {
+                    _logger.LogInformation("Обработка файла DOCX");
+                    documentContent = await ProcessDocxFileImproved(fullTemplatePath, fieldValues);
+                }
+                else
+                {
+                    _logger.LogInformation("Обработка файла DOC");
+                    var docHandler = new DocBinaryTemplateHandler(_logger);
+                    documentContent = docHandler.ProcessTemplate(fullTemplatePath, fieldValues);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogInformation("Обработка файла DOC");
-                var docHandler = new DocBinaryTemplateHandler(_logger);
-                documentContent = docHandler.ProcessTemplate(fullTemplatePath, fieldValues);
+                _logger.LogError(ex, $"Ошибка при обработке шаблона {fullTemplatePath}: {ex.Message}");
+                throw;
             }
 
             // Create output directory if it doesn't exist
@@ -131,63 +139,93 @@ namespace DocumentManager.Infrastructure.Services
                 {
                     _logger.LogInformation($"Документ загружен, количество параграфов: {doc.Paragraphs.Count}");
 
-                    // Простой способ логирования содержимого для отладки
+                    // Логгируем все поля для отладки
                     var documentText = doc.Text;
                     _logger.LogInformation($"Текст документа (первые 200 символов): {(documentText.Length > 200 ? documentText.Substring(0, 200) : documentText)}");
 
-                    // Поиск всех плейсхолдеров в документе с помощью регулярных выражений
-                    var placeholderRegex = new Regex(@"\{\{([^}]+)\}\}");
-                    var matches = placeholderRegex.Matches(documentText);
-
-                    _logger.LogInformation($"Найдено {matches.Count} плейсхолдеров в документе");
-
-                    foreach (Match match in matches)
+                    // Добавляем разные форматы плейсхолдеров для поиска
+                    var placeholderFormats = new List<(string pattern, Regex regex)>
                     {
-                        if (match.Groups.Count > 1)
+                        (@"\{\{([^}]+)\}\}", new Regex(@"\{\{([^}]+)\}\}")),   // {{FieldName}}
+                        (@"<<([^>]+)>>", new Regex(@"<<([^>]+)>>")),           // <<FieldName>>
+                        (@"\[([^\]]+)\]", new Regex(@"\[([^\]]+)\]")),         // [FieldName]
+                        (@"\$([a-zA-Z0-9_]+)", new Regex(@"\$([a-zA-Z0-9_]+)")) // $FieldName
+                    };
+
+                    // Выводим в лог все найденные плейсхолдеры в документе
+                    foreach (var (pattern, regex) in placeholderFormats)
+                    {
+                        var matches = regex.Matches(documentText);
+                        if (matches.Count > 0)
                         {
-                            var placeholderName = match.Groups[1].Value;
-                            _logger.LogInformation($"Найден плейсхолдер: {placeholderName}");
-
-                            if (fieldValues.TryGetValue(placeholderName, out var value))
+                            _logger.LogInformation($"Найдены плейсхолдеры в формате {pattern}: {matches.Count}");
+                            foreach (Match match in matches)
                             {
-                                _logger.LogInformation($"Заменяем плейсхолдер {{{{${placeholderName}}}}} на '{value}'");
-
-                                // Заменяем плейсхолдер во всех параграфах
-                                foreach (var paragraph in doc.Paragraphs)
+                                if (match.Groups.Count > 1)
                                 {
-                                    if (paragraph.Text.Contains($"{{{{{placeholderName}}}}}"))
-                                    {
-                                        // Обнаружен плейсхолдер в параграфе
-                                        _logger.LogInformation($"Заменяем плейсхолдер в параграфе: {paragraph.Text}");
-                                        paragraph.ReplaceText($"{{{{{placeholderName}}}}}", value ?? string.Empty);
-                                    }
+                                    var placeholderName = match.Groups[1].Value;
+                                    _logger.LogInformation($"Найден плейсхолдер: {placeholderName}");
                                 }
+                            }
+                        }
+                    }
 
-                                // Также ищем и заменяем в таблицах
-                                foreach (var table in doc.Tables)
+                    // Выводим в лог все поля, которые мы собираемся заменить
+                    _logger.LogInformation("Доступные поля для замены:");
+                    foreach (var field in fieldValues)
+                    {
+                        _logger.LogInformation($"  {field.Key} = {field.Value}");
+                    }
+
+                    // Попробуем заменить все форматы плейсхолдеров
+                    int replacementCount = 0;
+                    foreach (var (pattern, regex) in placeholderFormats)
+                    {
+                        foreach (var field in fieldValues)
+                        {
+                            var fieldName = field.Key;
+                            var fieldValue = field.Value ?? string.Empty;
+
+                            // Формируем шаблон для конкретного поля
+                            string placeholder = pattern.Replace("([^}]+)", fieldName)
+                                                      .Replace("([^>]+)", fieldName)
+                                                      .Replace("([^\\]]+)", fieldName)
+                                                      .Replace("([a-zA-Z0-9_]+)", fieldName);
+
+                            // Заменяем плейсхолдер во всех параграфах
+                            foreach (var paragraph in doc.Paragraphs)
+                            {
+                                if (paragraph.Text.Contains(placeholder))
                                 {
-                                    foreach (var row in table.Rows)
+                                    _logger.LogInformation($"Заменяем плейсхолдер в параграфе: {placeholder} -> {fieldValue}");
+                                    paragraph.ReplaceText(placeholder, fieldValue);
+                                    replacementCount++;
+                                }
+                            }
+
+                            // Также ищем и заменяем в таблицах
+                            foreach (var table in doc.Tables)
+                            {
+                                foreach (var row in table.Rows)
+                                {
+                                    foreach (var cell in row.Cells)
                                     {
-                                        foreach (var cell in row.Cells)
+                                        foreach (var paragraph in cell.Paragraphs)
                                         {
-                                            foreach (var paragraph in cell.Paragraphs)
+                                            if (paragraph.Text.Contains(placeholder))
                                             {
-                                                if (paragraph.Text.Contains($"{{{{{placeholderName}}}}}"))
-                                                {
-                                                    _logger.LogInformation($"Заменяем плейсхолдер в ячейке таблицы: {paragraph.Text}");
-                                                    paragraph.ReplaceText($"{{{{{placeholderName}}}}}", value ?? string.Empty);
-                                                }
+                                                _logger.LogInformation($"Заменяем плейсхолдер в ячейке таблицы: {placeholder} -> {fieldValue}");
+                                                paragraph.ReplaceText(placeholder, fieldValue);
+                                                replacementCount++;
                                             }
                                         }
                                     }
                                 }
                             }
-                            else
-                            {
-                                _logger.LogWarning($"Значение для плейсхолдера '{placeholderName}' не найдено в словаре");
-                            }
                         }
                     }
+
+                    _logger.LogInformation($"Всего выполнено {replacementCount} замен плейсхолдеров");
 
                     // Сохраняем изменения
                     _logger.LogInformation("Сохранение изменений в документе");
@@ -230,7 +268,7 @@ namespace DocumentManager.Infrastructure.Services
 
             if (document == null)
             {
-                throw new ArgumentException($"Document with ID {documentId} not found");
+                throw new ArgumentException($"Документ с ID {documentId} не найден");
             }
 
             var result = new List<(int DocumentId, string FilePath, byte[] Content)>();
@@ -248,29 +286,34 @@ namespace DocumentManager.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Ошибка генерации основного документа ID {documentId}: {ex.Message}");
-                // Continue with related documents even if main fails
             }
 
             // Generate related documents
-            var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(documentId);
-            _logger.LogInformation($"Найдено {relatedDocuments.Count()} связанных документов");
-
-            foreach (var relatedDocument in relatedDocuments)
+            try
             {
-                try
+                var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(documentId);
+                _logger.LogInformation($"Найдено {relatedDocuments.Count()} связанных документов");
+
+                foreach (var relatedDocument in relatedDocuments)
                 {
-                    _logger.LogInformation($"Генерация связанного документа ID: {relatedDocument.Id}");
-                    var (relatedPath, relatedContent) = await GenerateDocumentAsync(relatedDocument.Id);
-                    // Update the document with content
-                    await _documentService.UpdateDocumentContentAsync(relatedDocument.Id, relatedContent, relatedPath);
-                    result.Add((relatedDocument.Id, relatedPath, relatedContent));
-                    _logger.LogInformation($"Связанный документ успешно сгенерирован: {relatedPath}");
+                    try
+                    {
+                        _logger.LogInformation($"Генерация связанного документа ID: {relatedDocument.Id}");
+                        var (relatedPath, relatedContent) = await GenerateDocumentAsync(relatedDocument.Id);
+                        // Update the document with content
+                        await _documentService.UpdateDocumentContentAsync(relatedDocument.Id, relatedContent, relatedPath);
+                        result.Add((relatedDocument.Id, relatedPath, relatedContent));
+                        _logger.LogInformation($"Связанный документ успешно сгенерирован: {relatedPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Ошибка генерации связанного документа ID {relatedDocument.Id}: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Ошибка генерации связанного документа ID {relatedDocument.Id}: {ex.Message}");
-                    // Continue with other documents
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при обработке связанных документов: {ex.Message}");
             }
 
             return result;
