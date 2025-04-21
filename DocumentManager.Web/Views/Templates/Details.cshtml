@@ -1,4 +1,5 @@
-﻿@model DocumentManager.Web.Models.DocumentFormViewModel
+﻿@using DocumentManager.Web.Helpers
+@model DocumentManager.Web.Models.DocumentFormViewModel
 
 @{
     ViewData["Title"] = "Подробности шаблона";
@@ -83,12 +84,15 @@
                                         <td>
                                             @{
                                                 string typeClass = "bg-secondary";
-                                                if (field.FieldType == "text") typeClass = "bg-primary";
-                                                else if (field.FieldType == "date") typeClass = "bg-success";
-                                                else if (field.FieldType == "select") typeClass = "bg-info";
+                                                string typeName = LocalizationHelper.GetLocalizedFieldType(field.FieldType);
+
+                                                if (field.FieldType == "text") { typeClass = "bg-primary"; }
+                                                else if (field.FieldType == "date") { typeClass = "bg-success"; }
+                                                else if (field.FieldType == "select") { typeClass = "bg-info"; }
                                             }
-                                            <span class="badge @typeClass">@field.FieldType</span>
+                                            <span class="badge @typeClass">@typeName</span>
                                         </td>
+
                                         <td>
                                             @if (field.IsRequired)
                                             {

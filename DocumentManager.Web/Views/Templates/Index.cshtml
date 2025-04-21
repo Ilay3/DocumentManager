@@ -56,10 +56,20 @@
                         <div class="template-type mb-3">
                             @{
                                 string badgeClass = "bg-secondary";
-                                if (template.Type == "Passport") badgeClass = "bg-primary";
-                                else if (template.Type == "PackingList") badgeClass = "bg-success";
+                                string displayType = template.Type;
+
+                                if (template.Type == "Passport")
+                                {
+                                    badgeClass = "bg-primary";
+                                    displayType = "Паспорт";
+                                }
+                                else if (template.Type == "PackingList")
+                                {
+                                    badgeClass = "bg-success";
+                                    displayType = "Упаковочный лист";
+                                }
                             }
-                            <span class="badge @badgeClass">@template.Type</span>
+                            <span class="badge @badgeClass">@displayType</span>
                             @if (template.IsActive)
                             {
                                 <span class="badge bg-success ms-1">Активен</span>

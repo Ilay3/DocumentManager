@@ -137,10 +137,23 @@
                             <tbody>
                                 @if (Model.FieldValues != null)
                                 {
-                                    foreach (var field in Model.FieldValues)
+                                    @foreach (var field in Model.FieldValues)
                                     {
                                         <tr>
-                                            <td>@field.Key</td>
+                                            @* Получение локализованного имени поля *@
+                                            @{
+                                                string fieldLabel = field.Key;
+
+                                                // Ищем документ и поле для получения русского названия
+                                                var documentField = Model.DocumentFields?.FirstOrDefault(f =>
+                                                f.FieldName.Equals(field.Key, StringComparison.OrdinalIgnoreCase));
+
+                                                if (documentField != null)
+                                                {
+                                                    fieldLabel = documentField.FieldLabel;
+                                                }
+                                            }
+                                            <td>@fieldLabel</td>
                                             <td>@field.Value</td>
                                         </tr>
                                     }
@@ -151,6 +164,7 @@
                                         <td colspan="2" class="text-center">Нет данных</td>
                                     </tr>
                                 }
+
                             </tbody>
                         </table>
                     </div>

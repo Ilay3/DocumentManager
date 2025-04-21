@@ -52,6 +52,9 @@ namespace DocumentManager.Web.Controllers
                 var fieldValues = await _documentService.GetDocumentValuesAsync(id);
                 var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(id);
 
+                // Загружаем информацию о полях документа
+                var templateFields = await _templateService.GetTemplateFieldsAsync(document.DocumentTemplateId);
+
                 var viewModel = new DocumentViewModel
                 {
                     Id = document.Id,
@@ -73,6 +76,18 @@ namespace DocumentManager.Web.Controllers
                         CreatedAt = d.CreatedAt,
                         CreatedBy = d.CreatedBy,
                         GeneratedFilePath = d.GeneratedFilePath
+                    }).ToList(),
+
+                    // Добавляем информацию о полях
+                    DocumentFields = templateFields.Select(f => new DocumentFieldViewModel
+                    {
+                        Id = f.Id,
+                        FieldName = f.FieldName,
+                        FieldLabel = f.FieldLabel,
+                        FieldType = f.FieldType,
+                        IsRequired = f.IsRequired,
+                        IsUnique = f.IsUnique,
+                        DefaultValue = f.DefaultValue
                     }).ToList()
                 };
 
@@ -85,7 +100,7 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        
+
         // GET: Documents
         public async Task<IActionResult> Index(
             string factoryNumber = null,
@@ -430,10 +445,6 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Create));
             }
         }
-    
-
-
-        // GET: Documents/Details/5
         public async Task<IActionResult> Details(int id)
         {
             try
@@ -448,6 +459,9 @@ namespace DocumentManager.Web.Controllers
 
                 var fieldValues = await _documentService.GetDocumentValuesAsync(id);
                 var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(id);
+
+                // Загружаем информацию о полях документа
+                var templateFields = await _templateService.GetTemplateFieldsAsync(document.DocumentTemplateId);
 
                 var viewModel = new DocumentViewModel
                 {
@@ -470,6 +484,18 @@ namespace DocumentManager.Web.Controllers
                         CreatedAt = d.CreatedAt,
                         CreatedBy = d.CreatedBy,
                         GeneratedFilePath = d.GeneratedFilePath
+                    }).ToList(),
+
+                    // Добавляем информацию о полях
+                    DocumentFields = templateFields.Select(f => new DocumentFieldViewModel
+                    {
+                        Id = f.Id,
+                        FieldName = f.FieldName,
+                        FieldLabel = f.FieldLabel,
+                        FieldType = f.FieldType,
+                        IsRequired = f.IsRequired,
+                        IsUnique = f.IsUnique,
+                        DefaultValue = f.DefaultValue
                     }).ToList()
                 };
 

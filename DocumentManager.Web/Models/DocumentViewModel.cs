@@ -12,6 +12,8 @@
         public string GeneratedFilePath { get; set; }
         public Dictionary<string, string> FieldValues { get; set; } = new Dictionary<string, string>();
         public List<DocumentViewModel> RelatedDocuments { get; set; } = new List<DocumentViewModel>();
+        public List<DocumentFieldViewModel> DocumentFields { get; set; } = new List<DocumentFieldViewModel>();
+
     }
 
 }

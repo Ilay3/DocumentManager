@@ -90,12 +90,22 @@
                                 <td>@template.Code</td>
                                 <td>@template.Name</td>
                                 <td>
-                                    @{
-                                        string badgeClass = "bg-secondary";
-                                        if (template.Type == "Passport") badgeClass = "bg-primary";
-                                        else if (template.Type == "PackingList") badgeClass = "bg-success";
-                                    }
-                                    <span class="badge @badgeClass">@template.Type</span>
+                                        @{
+                                            string badgeClass = "bg-secondary";
+                                            string displayType = template.Type;
+
+                                            if (template.Type == "Passport")
+                                            {
+                                                badgeClass = "bg-primary";
+                                                displayType = "Паспорт";
+                                            }
+                                            else if (template.Type == "PackingList")
+                                            {
+                                                badgeClass = "bg-success";
+                                                displayType = "Упаковочный лист";
+                                            }
+                                        }
+                                    <span class="badge @badgeClass">@displayType</span>
                                 </td>
                                 <td class="text-truncate" style="max-width: 200px;" title="@template.WordTemplatePath">
                                     @(template.WordTemplatePath ?? "-")
