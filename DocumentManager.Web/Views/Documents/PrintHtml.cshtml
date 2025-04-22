@@ -1,0 +1,131 @@
+﻿@model PrintHtmlViewModel
+
+@{
+    ViewData["Title"] = "Печать документа";
+}
+
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <!-- Панель управления печатью (видима только в браузере, не при печати) -->
+        <div class="col-md-3 print-panel d-print-none" style="height: 100vh; overflow-y: auto; background-color: #f8f9fa; border-right: 1px solid #dee2e6; padding: 20px;">
+            <div class="d-flex align-items-center mb-4">
+                <i class="bi bi-printer fs-3 text-primary me-2"></i>
+                <h4 class="mb-0">Печать документа</h4>
+            </div>
+
+            <div class="document-info mb-4">
+                <h5>Информация о документе</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <dl class="mb-0">
+                            <dt>Наименование</dt>
+                            <dd>@Model.DocumentName</dd>
+
+                            <dt>Заводской номер</dt>
+                            <dd>@Model.FactoryNumber</dd>
+
+                            <dt>Создан</dt>
+                            <dd>@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+
+                            <dt>Автор</dt>
+                            <dd>@Model.CreatedBy</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-actions mb-4">
+                <h5>Действия</h5>
+
+                <div class="d-grid gap-2">
+                    <button id="printBtn" class="btn btn-primary">
+                        <i class="bi bi-printer"></i> Печать документа
+                    </button>
+
+                    <a href="@Url.Action("Download", "Documents", new { id = Model.DocumentId })" class="btn btn-outline-secondary">
+                        <i class="bi bi-download"></i> Скачать документ
+                    </a>
+
+                    <a href="@Url.Action("Details", "Documents", new { id = Model.DocumentId })" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Вернуться к документу
+                    </a>
+                </div>
+            </div>
+
+            <div class="print-help">
+                <h5>Инструкция</h5>
+                <div class="alert alert-info">
+                    <p><i class="bi bi-info-circle me-2"></i> Для печати документа:</p>
+                    <ol class="mb-0">
+                        <li>Нажмите кнопку "Печать документа"</li>
+                        <li>В появившемся диалоговом окне выберите принтер</li>
+                        <li>Настройте параметры печати (при необходимости)</li>
+                        <li>Нажмите "Печать"</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Содержимое документа в HTML формате -->
+        <div class="col-md-9 document-content" style="height: 100vh; overflow-y: auto; padding: 20px;">
+            <div id="documentHtml">
+                @Html.Raw(Model.HtmlContent)
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container-fluid {
+        padding: 0;
+        margin: 0;
+        max-width: 100%;
+    }
+
+    #documentHtml img {
+        max-width: 100%;
+    }
+
+    /* Стили для печати */
+    @@media print {
+        .print-panel {
+            display: none !important;
+        }
+
+        .document-content {
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+            padding: 0 !important;
+        }
+
+        body {
+            overflow: visible !important;
+        }
+    }
+</style>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Функция печати при нажатии на кнопку
+            document.getElementById('printBtn').addEventListener('click', function() {
+                window.print();
+            });
+
+            // Автоматическая печать, если запрошено через URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('print') === 'true') {
+                setTimeout(function() {
+                    window.print();
+                }, 1500); // Задержка для полной загрузки контента
+            }
+        });
+    </script>
+}

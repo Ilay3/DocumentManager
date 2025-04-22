@@ -21,6 +21,7 @@ namespace DocumentManager.Web.Controllers
         private readonly ILogger<DocumentsController> _logger;
         private readonly ProgressService _progressService;
         private readonly SimpleAuthService _authService;
+        private readonly DocxToHtmlService _docxToHtmlService;
 
         public DocumentsController(
             ITemplateService templateService,
@@ -28,6 +29,7 @@ namespace DocumentManager.Web.Controllers
             IDocumentGenerationService documentGenerationService,
             ProgressService progressService,
             SimpleAuthService authService,
+            DocxToHtmlService docxToHtmlService,
             ILogger<DocumentsController> logger)
         {
             _templateService = templateService;
@@ -35,6 +37,7 @@ namespace DocumentManager.Web.Controllers
             _documentGenerationService = documentGenerationService;
             _progressService = progressService;
             _authService = authService;
+            _docxToHtmlService = docxToHtmlService;
             _logger = logger;
         }
 
@@ -100,8 +103,6 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-
-        // GET: Documents
         public async Task<IActionResult> Index(
             string factoryNumber = null,
             int? templateId = null,
@@ -114,10 +115,8 @@ namespace DocumentManager.Web.Controllers
         {
             try
             {
-                // Get all documents
                 var allDocuments = await _documentService.GetAllDocumentsAsync();
 
-                // Filter documents
                 var filteredDocuments = allDocuments.AsQueryable();
 
                 if (!string.IsNullOrWhiteSpace(factoryNumber))
@@ -137,7 +136,6 @@ namespace DocumentManager.Web.Controllers
 
                 if (dateTo.HasValue)
                 {
-                    // Add one day to include the entire dateTo day
                     var dateToEnd = dateTo.Value.AddDays(1);
                     filteredDocuments = filteredDocuments.Where(d => d.CreatedAt < dateToEnd);
                 }
@@ -150,19 +148,15 @@ namespace DocumentManager.Web.Controllers
                         d.CreatedBy.Contains(search, StringComparison.OrdinalIgnoreCase));
                 }
 
-                // Order by creation date (newest first)
                 filteredDocuments = filteredDocuments.OrderByDescending(d => d.CreatedAt);
 
-                // Get total count for pagination
                 var totalCount = filteredDocuments.Count();
                 var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-                // Apply pagination
                 filteredDocuments = filteredDocuments
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize);
 
-                // Map to view models
                 var documentViewModels = filteredDocuments.Select(d => new DocumentViewModel
                 {
                     Id = d.Id,
@@ -175,7 +169,6 @@ namespace DocumentManager.Web.Controllers
                     GeneratedFilePath = d.GeneratedFilePath
                 }).ToList();
 
-                // Get all templates for the filter dropdown
                 var templates = await _templateService.GetAllTemplatesAsync();
                 var templateViewModels = templates.Select(t => new DocumentTemplateViewModel
                 {
@@ -186,7 +179,6 @@ namespace DocumentManager.Web.Controllers
                     IsActive = t.IsActive
                 }).ToList();
 
-                // Set ViewBag for filtering and pagination
                 ViewBag.FactoryNumber = factoryNumber;
                 ViewBag.TemplateId = templateId;
                 ViewBag.DateFrom = dateFrom?.ToString("yyyy-MM-dd");
@@ -210,8 +202,6 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-
-        // GET: Documents/Create
         public async Task<IActionResult> Create()
         {
             try
@@ -237,7 +227,6 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        // GET: Documents/CreateForm/5
         public async Task<IActionResult> CreateForm(int id)
         {
             try
@@ -270,7 +259,6 @@ namespace DocumentManager.Web.Controllers
                     }).ToList()
                 };
 
-                // Получаем связанные шаблоны (упаковочные листы)
                 var relatedTemplates = (await _templateService.GetAllTemplatesAsync())
                     .Where(t => t.Id != id && t.Type == "PackingList")
                     .Select(t => new DocumentTemplateViewModel
@@ -294,7 +282,6 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        // POST: Documents/CreateForm - Обновление для сохранения текущего пользователя
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateForm(int templateId, Dictionary<string, string> fieldValues, List<int> selectedRelatedTemplateIds)
@@ -826,6 +813,100 @@ namespace DocumentManager.Web.Controllers
         }
 
         [HttpGet]
+        [Route("Documents/PrintHtml/{id}")]
+        public async Task<IActionResult> PrintHtml(int id)
+        {
+            try
+            {
+                var document = await _documentService.GetDocumentByIdAsync(id);
+
+                if (document == null)
+                {
+                    _logger.LogWarning($"Документ с ID {id} не найден");
+                    return NotFound();
+                }
+
+                // Получаем содержимое документа
+                byte[] fileBytes;
+                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
+                {
+                    fileBytes = document.DocumentContent;
+                }
+                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
+                {
+                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
+                }
+                else
+                {
+                    _logger.LogInformation($"Генерация документа ID {id} для печати");
+                    var result = await _documentGenerationService.GenerateDocumentAsync(id);
+                    fileBytes = result.Content;
+                    await _documentService.UpdateDocumentContentAsync(id, result.Content, result.FilePath);
+                }
+
+                // Проверяем, является ли это DOCX-файлом
+                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".docx").ToLowerInvariant();
+
+                if (extension == ".docx")
+                {
+                    // Конвертируем DOCX в HTML
+                    _logger.LogInformation($"Конвертация документа ID {id} из DOCX в HTML для печати");
+                    var html = _docxToHtmlService.ConvertDocxToHtml(fileBytes, id.ToString());
+
+                    // Создаем модель представления
+                    var model = new PrintHtmlViewModel
+                    {
+                        DocumentId = id,
+                        DocumentName = document.DocumentTemplate.Name,
+                        FactoryNumber = document.FactoryNumber,
+                        CreatedAt = document.CreatedAt,
+                        CreatedBy = document.CreatedBy,
+                        HtmlContent = html
+                    };
+
+                    return View("PrintHtml", model);
+                }
+                else if (extension == ".doc")
+                {
+                    // Пытаемся конвертировать DOC в DOCX
+                    if (_docxToHtmlService.TryConvertDoc(fileBytes, out byte[] docxBytes))
+                    {
+                        var html = _docxToHtmlService.ConvertDocxToHtml(docxBytes, id.ToString());
+
+                        var model = new PrintHtmlViewModel
+                        {
+                            DocumentId = id,
+                            DocumentName = document.DocumentTemplate.Name,
+                            FactoryNumber = document.FactoryNumber,
+                            CreatedAt = document.CreatedAt,
+                            CreatedBy = document.CreatedBy,
+                            HtmlContent = html
+                        };
+
+                        return View("PrintHtml", model);
+                    }
+                    else
+                    {
+                        // Если конвертация DOC не удалась, используем стандартный подход
+                        return RedirectToAction("PrintInBrowser", new { id });
+                    }
+                }
+                else
+                {
+                    // Для других типов файлов используем существующий метод печати
+                    return RedirectToAction("PrintInBrowser", new { id });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при подготовке HTML-печати для документа ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка при подготовке документа для печати: {ex.Message}";
+                return RedirectToAction("Details", new { id });
+            }
+        }
+
+        // Обновите существующий метод PrintInBrowser, чтобы он использовал HTML-печать для DOCX-файлов
+        [HttpGet]
         [Route("Documents/PrintInBrowser/{id}")]
         public async Task<IActionResult> PrintInBrowser(int id)
         {
@@ -847,6 +928,14 @@ namespace DocumentManager.Web.Controllers
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
+                // Проверяем расширение файла, чтобы определить, следует ли использовать HTML-печать
+                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
+                if (extension == ".docx")
+                {
+                    // Для DOCX-файлов перенаправляем на HTML-печать
+                    return RedirectToAction("PrintHtml", new { id });
+                }
+
                 // Получаем данные документа
                 byte[] fileBytes;
                 if (document.DocumentContent != null && document.DocumentContent.Length > 0)
@@ -864,7 +953,7 @@ namespace DocumentManager.Web.Controllers
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
-                // Создаем модель для страницы печати
+                // Для других типов файлов используем существующий подход с iframe
                 var model = new PrintViewModel
                 {
                     DocumentId = id,
@@ -872,7 +961,7 @@ namespace DocumentManager.Web.Controllers
                     FactoryNumber = document.FactoryNumber,
                     CreatedAt = document.CreatedAt,
                     CreatedBy = document.CreatedBy,
-                    DocumentType = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant(),
+                    DocumentType = extension,
                     FileSize = fileBytes.Length
                 };
 
@@ -886,60 +975,5 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        // Метод для получения содержимого документа
-        [HttpGet]
-        [Route("Documents/GetDocumentContent/{id}")]
-        public async Task<IActionResult> GetDocumentContent(int id)
-        {
-            try
-            {
-                var document = await _documentService.GetDocumentByIdAsync(id);
-
-                if (document == null)
-                {
-                    return NotFound();
-                }
-
-                byte[] fileBytes;
-
-                if (document.DocumentContent != null && document.DocumentContent.Length > 0)
-                {
-                    fileBytes = document.DocumentContent;
-                }
-                else if (!string.IsNullOrWhiteSpace(document.GeneratedFilePath) && System.IO.File.Exists(document.GeneratedFilePath))
-                {
-                    fileBytes = await System.IO.File.ReadAllBytesAsync(document.GeneratedFilePath);
-                }
-                else
-                {
-                    var result = await _documentGenerationService.GenerateDocumentAsync(id);
-                    fileBytes = result.Content;
-                    await _documentService.UpdateDocumentContentAsync(id, result.Content, result.FilePath);
-                }
-
-                // Определяем тип контента
-                var extension = Path.GetExtension(document.GeneratedFilePath ?? ".doc").ToLowerInvariant();
-                string contentType;
-
-                if (extension == ".docx")
-                {
-                    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-                }
-                else
-                {
-                    contentType = "application/msword";
-                }
-
-                // Установка заголовка для встраивания файла
-                Response.Headers.Add("Content-Disposition", "inline");
-
-                return File(fileBytes, contentType);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при получении содержимого документа ID {id}");
-                return StatusCode(500, "Ошибка при получении документа");
-            }
-        }
     }
 }

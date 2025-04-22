@@ -54,6 +54,7 @@ builder.Services.AddScoped<TemplateManagerService>(provider =>
         jsonBasePath,
         templatesBasePath
     ));
+builder.Services.AddMemoryCache();
 
 // Регистрируем службы для авторизации и отслеживания прогресса
 builder.Services.AddSingleton<ProgressService>();
@@ -61,6 +62,7 @@ builder.Services.AddScoped<SimpleAuthService>();
 
 // Добавляем фоновую службу для очистки устаревших операций
 builder.Services.AddHostedService<ProgressCleanupService>();
+builder.Services.AddScoped<DocxToHtmlService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
