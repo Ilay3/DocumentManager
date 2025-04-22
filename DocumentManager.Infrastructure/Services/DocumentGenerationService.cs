@@ -122,145 +122,88 @@ namespace DocumentManager.Infrastructure.Services
 
         private async Task<byte[]> ProcessDocxFileImproved(string templatePath, Dictionary<string, string> fieldValues)
         {
-            // Создаем временную копию шаблона
+            // Создаём временный .docx
             var tempPath = Path.GetTempFileName();
-            File.Delete(tempPath); // Удаляем файл, который создал GetTempFileName
-            tempPath = Path.ChangeExtension(tempPath, ".docx"); // Добавляем расширение .docx
+            File.Delete(tempPath);
+            tempPath = Path.ChangeExtension(tempPath, ".docx");
 
             try
             {
-                _logger.LogInformation($"Создание временной копии шаблона: {tempPath}");
-                File.Copy(templatePath, tempPath);
-
-                // Заменяем плейсхолдеры в документе
-                _logger.LogInformation("Замена плейсхолдеров в документе");
+                _logger.LogInformation($"[ProcessDocx] Копируем шаблон {templatePath} → {tempPath}");
+                File.Copy(templatePath, tempPath, overwrite: true);
 
                 using (var doc = DocX.Load(tempPath))
                 {
-                    _logger.LogInformation($"Документ загружен, количество параграфов: {doc.Paragraphs.Count}");
+                    // Краткий превью текста
+                    var preview = doc.Text.Length > 200
+                        ? doc.Text.Substring(0, 200)
+                        : doc.Text;
+                    _logger.LogInformation($"[ProcessDocx] Текст документа (первые 200 символов):\n{preview}");
 
-                    // Логгируем все поля для отладки
-                    var documentText = doc.Text;
-                    _logger.LogInformation($"Текст документа (первые 200 символов): {(documentText.Length > 200 ? documentText.Substring(0, 200) : documentText)}");
+                    int totalReplacements = 0;
 
-                    // Добавляем разные форматы плейсхолдеров для поиска
-                    var placeholderFormats = new List<(string pattern, Regex regex)>
+                    foreach (var kv in fieldValues)
                     {
-                        (@"\{\{([^}]+)\}\}", new Regex(@"\{\{([^}]+)\}\}")),   // {{FieldName}}
-                        (@"<<([^>]+)>>", new Regex(@"<<([^>]+)>>")),           // <<FieldName>>
-                        (@"\[([^\]]+)\]", new Regex(@"\[([^\]]+)\]")),         // [FieldName]
-                        (@"\$([a-zA-Z0-9_]+)", new Regex(@"\$([a-zA-Z0-9_]+)")) // $FieldName
-                    };
+                        var name = kv.Key;
+                        var value = kv.Value ?? "";
 
-                    // Выводим в лог все найденные плейсхолдеры в документе
-                    foreach (var (pattern, regex) in placeholderFormats)
-                    {
-                        var matches = regex.Matches(documentText);
-                        if (matches.Count > 0)
+                        // Четыре формата плейсхолдеров
+                        var placeholders = new[]
                         {
-                            _logger.LogInformation($"Найдены плейсхолдеры в формате {pattern}: {matches.Count}");
-                            foreach (Match match in matches)
+                    "{{" + name + "}}",
+                    "<<" + name + ">>",
+                    "["  + name + "]",
+                    "$"  + name
+                };
+
+                        foreach (var ph in placeholders)
+                        {
+                            // Считаем, сколько раз реально встречается в документе
+                            var pattern = System.Text.RegularExpressions.Regex.Escape(ph);
+                            int count = System.Text.RegularExpressions.Regex.Matches(doc.Text, pattern).Count;
+                            if (count > 0)
                             {
-                                if (match.Groups.Count > 1)
-                                {
-                                    var placeholderName = match.Groups[1].Value;
-                                    _logger.LogInformation($"Найден плейсхолдер: {placeholderName}");
-                                }
+                                // Заменяем все вхождения
+                                doc.ReplaceText(ph, value, false, System.Text.RegularExpressions.RegexOptions.None);
+                                totalReplacements += count;
+                                _logger.LogInformation($"[ProcessDocx] Заменено {count}× «{ph}» → «{value}»");
                             }
                         }
                     }
 
-                    // Выводим в лог все поля, которые мы собираемся заменить
-                    _logger.LogInformation("Доступные поля для замены:");
-                    foreach (var field in fieldValues)
-                    {
-                        _logger.LogInformation($"  {field.Key} = {field.Value}");
-                    }
-
-                    // Попробуем заменить все форматы плейсхолдеров
-                    int replacementCount = 0;
-                    foreach (var (pattern, regex) in placeholderFormats)
-                    {
-                        foreach (var field in fieldValues)
-                        {
-                            var fieldName = field.Key;
-                            var fieldValue = field.Value ?? string.Empty;
-
-                            // Формируем шаблон для конкретного поля
-                            string placeholder = pattern.Replace("([^}]+)", fieldName)
-                                                      .Replace("([^>]+)", fieldName)
-                                                      .Replace("([^\\]]+)", fieldName)
-                                                      .Replace("([a-zA-Z0-9_]+)", fieldName);
-
-                            // Заменяем плейсхолдер во всех параграфах
-                            foreach (var paragraph in doc.Paragraphs)
-                            {
-                                if (paragraph.Text.Contains(placeholder))
-                                {
-                                    _logger.LogInformation($"Заменяем плейсхолдер в параграфе: {placeholder} -> {fieldValue}");
-                                    paragraph.ReplaceText(placeholder, fieldValue);
-                                    replacementCount++;
-                                }
-                            }
-
-                            // Также ищем и заменяем в таблицах
-                            foreach (var table in doc.Tables)
-                            {
-                                foreach (var row in table.Rows)
-                                {
-                                    foreach (var cell in row.Cells)
-                                    {
-                                        foreach (var paragraph in cell.Paragraphs)
-                                        {
-                                            if (paragraph.Text.Contains(placeholder))
-                                            {
-                                                _logger.LogInformation($"Заменяем плейсхолдер в ячейке таблицы: {placeholder} -> {fieldValue}");
-                                                paragraph.ReplaceText(placeholder, fieldValue);
-                                                replacementCount++;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    _logger.LogInformation($"Всего выполнено {replacementCount} замен плейсхолдеров");
-
-                    // Сохраняем изменения
-                    _logger.LogInformation("Сохранение изменений в документе");
+                    _logger.LogInformation($"[ProcessDocx] Всего заменено: {totalReplacements}. Сохраняем документ.");
                     doc.Save();
                 }
 
-                // Читаем результат
-                _logger.LogInformation("Чтение результата");
+                _logger.LogInformation("[ProcessDocx] Чтение обработанного файла");
                 var result = await File.ReadAllBytesAsync(tempPath);
-                _logger.LogInformation($"Документ успешно обработан, размер: {result.Length} байт");
-
+                _logger.LogInformation($"[ProcessDocx] Возвращаем документ размером {result.Length} байт");
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Ошибка при обработке DOCX файла: {ex.Message}");
+                _logger.LogError(ex, $"[ProcessDocx] Ошибка при обработке шаблона {templatePath}");
                 throw;
             }
             finally
             {
-                // Удаляем временный файл
-                if (File.Exists(tempPath))
+                try
                 {
-                    try
+                    if (File.Exists(tempPath))
                     {
                         File.Delete(tempPath);
-                        _logger.LogInformation($"Временный файл удален: {tempPath}");
+                        _logger.LogInformation($"[ProcessDocx] Удалён временный файл {tempPath}");
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning($"Не удалось удалить временный файл: {ex.Message}");
-                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning(e, $"[ProcessDocx] Не удалось удалить временный файл {tempPath}");
                 }
             }
         }
+
+
+
 
         public async Task<IEnumerable<(int DocumentId, string FilePath, byte[] Content)>> GenerateRelatedDocumentsAsync(int documentId)
         {
