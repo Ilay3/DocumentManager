@@ -46,13 +46,15 @@
                         {
                             <li>
                                 <a class="dropdown-item" href="@Url.Action("Download", "Documents", new { id = Model.Id })">
-                                    <i class="bi bi-download"></i> Скачать
+                                    <i class="bi bi-download"></i> Скачать Word
                                 </a>
                             </li>
+
                             <li>
-                                <a class="dropdown-item" href="@Url.Action("Print", "Documents", new { id = Model.Id })" target="_blank">
-                                    <i class="bi bi-printer"></i> Печать
+                                <a class="dropdown-item" href="@Url.Action("PrintPdf", "Documents", new { id = Model.Id })">
+                                    <i class="bi bi-file-pdf text-danger"></i> Печать через PDF
                                 </a>
+
                             </li>
                         }
                         <li><hr class="dropdown-divider"></li>
@@ -195,8 +197,8 @@
                             <a href="@Url.Action("Download", "Documents", new { id = Model.Id })" class="btn btn-primary">
                                 <i class="bi bi-download"></i> Скачать документ
                             </a>
-                            <a href="@Url.Action("PrintInBrowser", "Documents", new { id = Model.Id })" class="btn btn-outline-secondary">
-                                <i class="bi bi-printer"></i> Печать документа
+                            <a class="btn btn-primary" href="@Url.Action("PrintPdf", "Documents", new { id = Model.Id })">
+                                <i class="bi bi-file-pdf text-danger"></i> Печать через PDF (рекомендуется)
                             </a>
 
                         </div>

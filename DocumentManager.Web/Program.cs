@@ -62,7 +62,7 @@ builder.Services.AddScoped<SimpleAuthService>();
 
 // Добавляем фоновую службу для очистки устаревших операций
 builder.Services.AddHostedService<ProgressCleanupService>();
-builder.Services.AddScoped<DocxToHtmlService>();
+builder.Services.AddScoped<LibreOfficeConversionService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
