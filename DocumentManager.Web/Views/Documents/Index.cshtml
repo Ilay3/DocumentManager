@@ -157,7 +157,7 @@ else
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item" href="@Url.Action("PrintInBrowser", "Documents", new { id = document.Id })">
+                                            <a class="dropdown-item" href="@Url.Action("PrintPdf", "Documents", new { id = document.Id })">
                                                 <i class="bi bi-printer"></i> Печать
                                             </a>
                                         </li>
@@ -242,8 +242,8 @@ else
                                                         </a>
                                                     </li>
                                                     <li>
-                                                        <a class="dropdown-item" href="@Url.Action("PrintInBrowser", "Documents", new { id = document.Id })">
-                                                            <i class="bi bi-printer"></i> Печать
+                                                        <a class="dropdown-item" href="@Url.Action("PrintPdf", "Documents", new { id = document.Id })">
+                                                            <i class="bi bi-file-pdf text-danger"></i> Печать через PDF
                                                         </a>
                                                     </li>
                                                 }
