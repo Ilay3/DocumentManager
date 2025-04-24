@@ -3,7 +3,7 @@
 @{
     ViewData["Title"] = "Шаблоны документов";
 }
-
+<link rel="stylesheet" href="~/css/template-categories.css" />
 <div class="row mb-4">
     <div class="col-md-6">
         <h1 class="display-6 mb-0">
@@ -11,105 +11,266 @@
         </h1>
         <p class="text-muted mt-2">Список доступных шаблонов для создания документов</p>
     </div>
-    <div class="col-md-6 text-md-end">
-        <a href="@Url.Action("Index", "TemplatesAdmin")" class="btn btn-outline-secondary">
+    <div class="col-md-6 text-md-end mt-3 mt-md-0">
+        <a href="@Url.Action("Index", "TemplatesAdmin")" class="btn btn-outline-primary">
             <i class="bi bi-gear"></i> Управление шаблонами
         </a>
     </div>
 </div>
 
-<div class="row g-4">
-    @if (!Model.Any())
-    {
-        <div class="col-12">
-            <div class="text-center py-5">
-                <div class="display-6 text-muted mb-4">
-                    <i class="bi bi-folder2-open"></i>
+@if (!Model.Any())
+{
+    <div class="text-center py-5">
+        <div class="display-6 text-muted mb-4">
+            <i class="bi bi-folder2-open"></i>
+        </div>
+        <h3>Шаблоны не найдены</h3>
+        <p class="text-muted">В системе пока нет доступных шаблонов документов</p>
+    </div>
+}
+else
+{
+    <!-- Поиск шаблонов -->
+    <div class="filter-panel mb-4">
+        <div class="row g-3">
+            <div class="col-md-12">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="templateSearchInput" class="form-control" placeholder="Поиск шаблонов...">
                 </div>
-                <h3>Шаблоны не найдены</h3>
-                <p class="text-muted">В системе пока нет доступных шаблонов документов</p>
             </div>
         </div>
-    }
-    else
-    {
-        foreach (var template in Model)
-        {
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm template-card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="template-icon rounded-circle bg-light text-primary d-flex align-items-center justify-content-center me-3">
-                                @{
-                                    string iconClass = "bi-file-earmark-text";
-                                    if (template.Type == "Passport") iconClass = "bi-journal-bookmark";
-                                    else if (template.Type == "PackingList") iconClass = "bi-box-seam";
-                                }
-                                <i class="bi @iconClass fs-4"></i>
-                            </div>
-                            <div>
-                                <h5 class="card-title mb-0">@template.Name</h5>
-                                <div class="text-muted small">@template.Code</div>
-                            </div>
-                        </div>
+    </div>
 
-                        <div class="template-type mb-3">
-                            @{
-                                string badgeClass = "bg-secondary";
-                                string displayType = template.Type;
+    <!-- Вкладки категорий шаблонов -->
+    <div class="template-categories mb-4">
+        <ul class="nav nav-tabs template-tabs" id="templateTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="passports-tab" data-bs-toggle="tab" data-bs-target="#passports-pane"
+                        type="button" role="tab" aria-controls="passports-pane" aria-selected="true">
+                    <i class="bi bi-journal-bookmark"></i> Паспорта
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="packing-lists-tab" data-bs-toggle="tab" data-bs-target="#packing-lists-pane"
+                        type="button" role="tab" aria-controls="packing-lists-pane" aria-selected="false">
+                    <i class="bi bi-box-seam"></i> Упаковочные листы
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="packing-inventories-tab" data-bs-toggle="tab" data-bs-target="#packing-inventories-pane"
+                        type="button" role="tab" aria-controls="packing-inventories-pane" aria-selected="false">
+                    <i class="bi bi-clipboard-check"></i> Упаковочная ведомость
+                </button>
+            </li>
+        </ul>
+    </div>
 
-                                if (template.Type == "Passport")
-                                {
-                                    badgeClass = "bg-primary";
-                                    displayType = "Паспорт";
-                                }
-                                else if (template.Type == "PackingList")
-                                {
-                                    badgeClass = "bg-success";
-                                    displayType = "Упаковочный лист";
-                                }
-                            }
-                            <span class="badge @badgeClass">@displayType</span>
-                            @if (template.IsActive)
-                            {
-                                <span class="badge bg-success ms-1">Активен</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-danger ms-1">Отключен</span>
-                            }
-                        </div>
-
-                        <div class="template-actions mt-auto pt-3 d-flex">
-                            <a asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary me-2">
-                                <i class="bi bi-info-circle"></i> Подробности
-                            </a>
-                            @if (template.IsActive)
-                            {
-                                <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@template.Id" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-plus-circle"></i> Создать документ
-                                </a>
-                            }
-                        </div>
-                    </div>
-                </div>
+    <!-- Содержимое вкладок -->
+    <div class="tab-content" id="templateTabsContent">
+        <!-- Паспорта -->
+        <div class="tab-pane fade show active" id="passports-pane" role="tabpanel" aria-labelledby="passports-tab">
+            <div class="category-header">
+                <h3 class="category-title">Паспорта</h3>
+                <p class="text-muted">Паспорта устройств с техническими характеристиками и информацией о настройках</p>
             </div>
-        }
-    }
-</div>
 
-<style>
-    .template-icon {
-        width: 48px;
-        height: 48px;
-    }
+            <div class="row g-4">
+                @{
+                    var passportTemplates = Model.Where(t => t.Type == "Passport").ToList();
+                    if (!passportTemplates.Any())
+                    {
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i> Шаблоны паспортов не найдены
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        foreach (var template in passportTemplates)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card h-100 template-card passport-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="template-icon me-3">
+                                                <i class="bi bi-journal-bookmark fs-4"></i>
+                                            </div>
+                                            <div>
+                                                <h5 class="card-title mb-0">@template.Name</h5>
+                                                <div class="text-muted small">@template.Code</div>
+                                            </div>
+                                        </div>
 
-    .template-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
+                                        <div class="template-type mb-3">
+                                            <span class="badge bg-primary">Паспорт</span>
+                                            @if (template.IsActive)
+                                            {
+                                                <span class="badge bg-success ms-1">Активен</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger ms-1">Отключен</span>
+                                            }
+                                        </div>
 
-    .template-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    }
-</style>
+                                        <div class="template-actions mt-auto pt-3 d-flex">
+                                            <a asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary me-2">
+                                                <i class="bi bi-info-circle"></i> Подробности
+                                            </a>
+                                            @if (template.IsActive)
+                                            {
+                                                <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@template.Id" class="btn btn-sm btn-primary">
+                                                    <i class="bi bi-plus-circle"></i> Создать
+                                                </a>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Упаковочные листы -->
+        <div class="tab-pane fade" id="packing-lists-pane" role="tabpanel" aria-labelledby="packing-lists-tab">
+            <div class="category-header">
+                <h3 class="category-title">Упаковочные листы</h3>
+                <p class="text-muted">Упаковочные листы с перечнем комплектующих и аксессуаров</p>
+            </div>
+
+            <div class="row g-4">
+                @{
+                    var packingListTemplates = Model.Where(t => t.Type == "PackingList").ToList();
+                    if (!packingListTemplates.Any())
+                    {
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i> Шаблоны упаковочных листов не найдены
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        foreach (var template in packingListTemplates)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card h-100 template-card packing-list-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="template-icon me-3">
+                                                <i class="bi bi-box-seam fs-4"></i>
+                                            </div>
+                                            <div>
+                                                <h5 class="card-title mb-0">@template.Name</h5>
+                                                <div class="text-muted small">@template.Code</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="template-type mb-3">
+                                            <span class="badge bg-success">Упаковочный лист</span>
+                                            @if (template.IsActive)
+                                            {
+                                                <span class="badge bg-success ms-1">Активен</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger ms-1">Отключен</span>
+                                            }
+                                        </div>
+
+                                        <div class="template-actions mt-auto pt-3 d-flex">
+                                            <a asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-success me-2">
+                                                <i class="bi bi-info-circle"></i> Подробности
+                                            </a>
+                                            @if (template.IsActive)
+                                            {
+                                                <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@template.Id" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-plus-circle"></i> Создать
+                                                </a>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Упаковочная ведомость -->
+        <div class="tab-pane fade" id="packing-inventories-pane" role="tabpanel" aria-labelledby="packing-inventories-tab">
+            <div class="category-header">
+                <h3 class="category-title">Упаковочная ведомость</h3>
+                <p class="text-muted">Сводные упаковочные ведомости для регистрации и учета поставок</p>
+            </div>
+
+            <div class="row g-4">
+                @{
+                    var packingInventoryTemplates = Model.Where(t => t.Type == "PackingInventory").ToList();
+                    if (!packingInventoryTemplates.Any())
+                    {
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i> Шаблоны упаковочных ведомостей не найдены
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        foreach (var template in packingInventoryTemplates)
+                        {
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card h-100 template-card packing-inventory-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="template-icon me-3">
+                                                <i class="bi bi-clipboard-check fs-4"></i>
+                                            </div>
+                                            <div>
+                                                <h5 class="card-title mb-0">@template.Name</h5>
+                                                <div class="text-muted small">@template.Code</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="template-type mb-3">
+                                            <span class="badge bg-info">Упаковочная ведомость</span>
+                                            @if (template.IsActive)
+                                            {
+                                                <span class="badge bg-success ms-1">Активен</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger ms-1">Отключен</span>
+                                            }
+                                        </div>
+
+                                        <div class="template-actions mt-auto pt-3 d-flex">
+                                            <a asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-info me-2">
+                                                <i class="bi bi-info-circle"></i> Подробности
+                                            </a>
+                                            @if (template.IsActive)
+                                            {
+                                                <a asp-controller="Documents" asp-action="CreateForm" asp-route-id="@template.Id" class="btn btn-sm btn-info">
+                                                    <i class="bi bi-plus-circle"></i> Создать
+                                                </a>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/template-categories.js"></script>
+}

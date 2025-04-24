@@ -21,7 +21,6 @@ namespace DocumentManager.Web.Controllers
         private readonly ILogger<DocumentsController> _logger;
         private readonly ProgressService _progressService;
         private readonly SimpleAuthService _authService;
-        private readonly LibreOfficeConversionService _libreOfficeService;
 
         public DocumentsController(
             ITemplateService templateService,
@@ -29,7 +28,6 @@ namespace DocumentManager.Web.Controllers
             IDocumentGenerationService documentGenerationService,
             ProgressService progressService,
             SimpleAuthService authService,
-            LibreOfficeConversionService libreOfficeService,
             ILogger<DocumentsController> logger)
         {
             _templateService = templateService;
@@ -37,7 +35,6 @@ namespace DocumentManager.Web.Controllers
             _documentGenerationService = documentGenerationService;
             _progressService = progressService;
             _authService = authService;
-            _libreOfficeService = libreOfficeService;
             _logger = logger;
         }
 
@@ -812,219 +809,7 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        /// <summary>
-        /// Печать документа через PDF
-        /// </summary>
-        [HttpGet]
-        [Route("Documents/PrintPdf/{id}")]
-        public async Task<IActionResult> PrintPdf(int id)
-        {
-            try
-            {
-                var document = await _documentService.GetDocumentByIdAsync(id);
-
-                if (document == null)
-                {
-                    _logger.LogWarning($"Документ с ID {id} не найден");
-                    return NotFound();
-                }
-
-                // Проверяем существует ли сгенерированный документ
-                if (document.DocumentContent == null && string.IsNullOrWhiteSpace(document.GeneratedFilePath))
-                {
-                    _logger.LogWarning($"Документ с ID {id} ещё не сгенерирован");
-                    TempData["WarningMessage"] = "Документ ещё не сгенерирован. Пожалуйста, сгенерируйте его перед печатью.";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
-                // Получаем содержимое документа или путь к нему
-                string sourceFilePath = document.GeneratedFilePath;
-                byte[] documentContent = document.DocumentContent;
-
-                // Определяем расширение файла
-                string extension = Path.GetExtension(document.GeneratedFilePath ?? ".docx").ToLowerInvariant();
-
-                // Конвертируем в PDF
-                string pdfFilePath;
-
-                if (!string.IsNullOrEmpty(sourceFilePath) && System.IO.File.Exists(sourceFilePath))
-                {
-                    // Конвертируем файл с диска
-                    _logger.LogInformation($"Конвертация документа ID {id} из файла {sourceFilePath} в PDF");
-                    pdfFilePath = await _libreOfficeService.ConvertToPdfAsync(sourceFilePath);
-                }
-                else if (documentContent != null && documentContent.Length > 0)
-                {
-                    // Конвертируем из содержимого в памяти
-                    _logger.LogInformation($"Конвертация документа ID {id} из содержимого в памяти в PDF");
-                    var result = await _libreOfficeService.ConvertContentToPdfAsync(documentContent, extension);
-                    pdfFilePath = result.FilePath;
-                }
-                else
-                {
-                    _logger.LogError($"Нет доступного содержимого для документа ID {id}");
-                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа для печати.";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
-                // Создаем URL для скачивания PDF
-                string pdfDownloadUrl = Url.Action("DownloadPdf", "Documents", new { id });
-
-                // Создаем модель представления
-                var model = new PrintPdfViewModel
-                {
-                    DocumentId = id,
-                    DocumentName = document.DocumentTemplate.Name,
-                    FactoryNumber = document.FactoryNumber,
-                    CreatedAt = document.CreatedAt,
-                    CreatedBy = document.CreatedBy,
-                    PdfFilePath = pdfFilePath,
-                    PdfDownloadUrl = pdfDownloadUrl
-                };
-
-                return View(model);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при подготовке PDF для печати документа ID {id}");
-                TempData["ErrorMessage"] = $"Ошибка при подготовке документа для печати: {ex.Message}";
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
-
-        /// <summary>
-        /// Просмотр PDF-файла в браузере
-        /// </summary>
-        [HttpGet]
-        [Route("Documents/ViewPdf/{id}")]
-        public async Task<IActionResult> ViewPdf(int id)
-        {
-            try
-            {
-                var document = await _documentService.GetDocumentByIdAsync(id);
-
-                if (document == null)
-                {
-                    _logger.LogWarning($"Документ с ID {id} не найден");
-                    return NotFound();
-                }
-
-                // Получаем содержимое документа или путь к нему
-                string sourceFilePath = document.GeneratedFilePath;
-                byte[] documentContent = document.DocumentContent;
-
-                // Определяем расширение файла
-                string extension = Path.GetExtension(document.GeneratedFilePath ?? ".docx").ToLowerInvariant();
-
-                // Конвертируем в PDF
-                byte[] pdfContent;
-
-                if (!string.IsNullOrEmpty(sourceFilePath) && System.IO.File.Exists(sourceFilePath))
-                {
-                    // Конвертируем файл с диска
-                    _logger.LogInformation($"Конвертация документа ID {id} из файла {sourceFilePath} в PDF для просмотра");
-                    string pdfPath = await _libreOfficeService.ConvertToPdfAsync(sourceFilePath);
-                    pdfContent = await System.IO.File.ReadAllBytesAsync(pdfPath);
-                }
-                else if (documentContent != null && documentContent.Length > 0)
-                {
-                    // Конвертируем из содержимого в памяти
-                    _logger.LogInformation($"Конвертация документа ID {id} из содержимого в памяти в PDF для просмотра");
-                    var result = await _libreOfficeService.ConvertContentToPdfAsync(documentContent, extension);
-                    pdfContent = result.Content;
-                }
-                else
-                {
-                    _logger.LogError($"Нет доступного содержимого для документа ID {id}");
-                    return NotFound("Не удалось получить содержимое документа для просмотра.");
-                }
-
-                // Отправляем PDF для просмотра в браузере
-                return base.File(pdfContent, "application/pdf");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при подготовке PDF для просмотра документа ID {id}");
-                return Content($"<div class='alert alert-danger'>Ошибка при подготовке документа для просмотра: {ex.Message}</div>", "text/html");
-            }
-        }
-
-        /// <summary>
-        /// Скачивание PDF-версии документа
-        /// </summary>
-        [HttpGet]
-        [Route("Documents/DownloadPdf/{id}")]
-        public async Task<IActionResult> DownloadPdf(int id)
-        {
-            try
-            {
-                var document = await _documentService.GetDocumentByIdAsync(id);
-
-                if (document == null)
-                {
-                    _logger.LogWarning($"Документ с ID {id} не найден");
-                    return NotFound();
-                }
-
-                // Получаем содержимое документа или путь к нему
-                string sourceFilePath = document.GeneratedFilePath;
-                byte[] documentContent = document.DocumentContent;
-
-                // Определяем расширение файла
-                string extension = Path.GetExtension(document.GeneratedFilePath ?? ".docx").ToLowerInvariant();
-
-                // Конвертируем в PDF
-                byte[] pdfContent;
-                string pdfPath;
-
-                if (!string.IsNullOrEmpty(sourceFilePath) && System.IO.File.Exists(sourceFilePath))
-                {
-                    // Конвертируем файл с диска
-                    _logger.LogInformation($"Конвертация документа ID {id} из файла {sourceFilePath} в PDF для скачивания");
-                    pdfPath = await _libreOfficeService.ConvertToPdfAsync(sourceFilePath);
-                    pdfContent = await System.IO.File.ReadAllBytesAsync(pdfPath);
-                }
-                else if (documentContent != null && documentContent.Length > 0)
-                {
-                    // Конвертируем из содержимого в памяти
-                    _logger.LogInformation($"Конвертация документа ID {id} из содержимого в памяти в PDF для скачивания");
-                    var result = await _libreOfficeService.ConvertContentToPdfAsync(documentContent, extension);
-                    pdfContent = result.Content;
-                    pdfPath = result.FilePath;
-                }
-                else
-                {
-                    _logger.LogError($"Нет доступного содержимого для документа ID {id}");
-                    TempData["ErrorMessage"] = "Не удалось получить содержимое документа для скачивания.";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
-                // Создание имени файла с транслитерацией русских символов
-                string originalFileName = $"{document.DocumentTemplate.Code}_{document.FactoryNumber}";
-                string transliteratedFileName = TransliterationHelper.Transliterate(originalFileName);
-
-                // Обработка специальных символов в имени файла
-                string safeFileName = transliteratedFileName
-                    .Replace(" ", "_")
-                    .Replace(",", "_")
-                    .Replace("\"", "_")
-                    .Replace("'", "_")
-                    .Replace(":", "_")
-                    .Replace(";", "_")
-                    .Replace("?", "_") + ".pdf";
-
-                _logger.LogInformation($"Отправка PDF-файла клиенту: {safeFileName}, размер: {pdfContent.Length} байт");
-
-                // Возвращаем файл для скачивания
-                return base.File(pdfContent, "application/pdf", safeFileName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка при скачивании PDF для документа ID {id}");
-                TempData["ErrorMessage"] = $"Ошибка при скачивании PDF: {ex.Message}";
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
+        
 
     }
 }

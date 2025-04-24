@@ -50,12 +50,7 @@
                                 </a>
                             </li>
 
-                            <li>
-                                <a class="dropdown-item" href="@Url.Action("PrintPdf", "Documents", new { id = Model.Id })">
-                                    <i class="bi bi-file-pdf text-danger"></i> Печать через PDF
-                                </a>
-
-                            </li>
+                           
                         }
                         <li><hr class="dropdown-divider"></li>
                         <li>
@@ -197,10 +192,7 @@
                             <a href="@Url.Action("Download", "Documents", new { id = Model.Id })" class="btn btn-primary">
                                 <i class="bi bi-download"></i> Скачать документ
                             </a>
-                            <a class="btn btn-primary" href="@Url.Action("PrintPdf", "Documents", new { id = Model.Id })">
-                                <i class="bi bi-file-pdf text-danger"></i> Печать через PDF
-                            </a>
-
+                          
                         </div>
                     </div>
                 </div>

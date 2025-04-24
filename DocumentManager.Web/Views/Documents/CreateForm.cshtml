@@ -4,6 +4,92 @@
     ViewData["Title"] = "Создание документа";
 }
 
+<style>
+    /* Улучшения для формы создания документа */
+    .form-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        margin-bottom: 1.5rem;
+    }
+
+        .form-card .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            padding: 1rem 1.5rem;
+        }
+
+        .form-card .card-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+            .form-card .card-title i {
+                margin-right: 0.75rem;
+                color: #3a7bd5;
+            }
+
+    /* Исправление проблемы с длинными названиями в формах */
+    .form-floating label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 90%; /* Не даем тексту выходить за пределы */
+        pointer-events: none; /* Чтобы тултип работал корректно */
+    }
+
+    /* Добавляем тултип для длинных названий */
+    .form-field-container {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    /* Группы полей */
+    .fields-group {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .fields-group-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        color: #3a7bd5;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px dashed #e9ecef;
+    }
+
+    /* Чекбоксы для связанных документов */
+    .related-templates-list .form-check {
+        padding-left: 1.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .related-templates-list .form-check-input {
+        margin-top: 0.3rem;
+    }
+
+    .related-templates-list .form-check-label {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Кнопки действий */
+    .action-buttons {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eee;
+    }
+
+        .action-buttons .btn {
+            font-weight: 500;
+            padding: 0.5rem 1.5rem;
+        }
+</style>
+
 <div class="row mb-4">
     <div class="col-lg-8">
         <h1 class="display-6 mb-0">
@@ -24,10 +110,10 @@
     <div class="row">
         <!-- Левая колонка - Основные поля -->
         <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-pencil-square text-primary me-2"></i> Данные документа
+            <div class="card form-card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-pencil-square"></i> Данные документа
                     </h5>
                 </div>
                 <div class="card-body">
@@ -52,61 +138,63 @@
 
                     @if (primaryFields.Any())
                     {
-                        <div class="primary-fields mb-4">
-                            <h6 class="border-bottom pb-2 mb-3">Основные параметры</h6>
+                        <div class="fields-group">
+                            <h6 class="fields-group-title">Основные параметры</h6>
                             <div class="row g-3">
                                 @foreach (var field in primaryFields)
                                 {
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            @{
-                                                bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
-                                                string cssClass = hasError ? "form-control is-invalid" : "form-control";
-                                            }
+                                        <div class="form-field-container" title="@field.FieldLabel">
+                                            <div class="form-floating">
+                                                @{
+                                                    bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
+                                                    string cssClass = hasError ? "form-control is-invalid" : "form-control";
+                                                }
 
-                                            @if (field.FieldType == "select" && field.Options.Any())
-                                            {
-                                                <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="@cssClass">
-                                                    <option value="">-- Выберите --</option>
-                                                    @foreach (var option in field.Options)
-                                                    {
-                                                        if (option == field.Value)
+                                                @if (field.FieldType == "select" && field.Options.Any())
+                                                {
+                                                    <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="@cssClass">
+                                                        <option value="">-- Выберите --</option>
+                                                        @foreach (var option in field.Options)
                                                         {
-                                                            <option value="@option" selected>@option</option>
+                                                            if (option == field.Value)
+                                                            {
+                                                                <option value="@option" selected>@option</option>
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="@option">@option</option>
+                                                            }
                                                         }
-                                                        else
-                                                        {
-                                                            <option value="@option">@option</option>
-                                                        }
-                                                    }
-                                                </select>
-                                            }
-                                            else
-                                            {
-                                                <input type="text"
-                                                       name="fieldValues[@field.FieldName]"
-                                                       id="@field.FieldName"
-                                                       class="@cssClass"
-                                                       value="@field.Value"
-                                                       required="@field.IsRequired"
-                                                       placeholder="@field.FieldLabel" />
-                                            }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <input type="text"
+                                                           name="fieldValues[@field.FieldName]"
+                                                           id="@field.FieldName"
+                                                           class="@cssClass"
+                                                           value="@field.Value"
+                                                           required="@field.IsRequired"
+                                                           placeholder="@field.FieldLabel" />
+                                                }
 
-                                            <label for="@field.FieldName">
-                                                @field.FieldLabel @(field.IsRequired ? "*" : "")
-                                            </label>
+                                                <label for="@field.FieldName">
+                                                    @field.FieldLabel @(field.IsRequired ? "*" : "")
+                                                </label>
 
-                                            @if (hasError)
-                                            {
-                                                <div class="invalid-feedback">
-                                                    @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
-                                                </div>
-                                            }
+                                                @if (hasError)
+                                                {
+                                                    <div class="invalid-feedback">
+                                                        @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                    </div>
+                                                }
 
-                                            @if (field.IsUnique)
-                                            {
-                                                <div class="form-text small">Должно быть уникальным</div>
-                                            }
+                                                @if (field.IsUnique)
+                                                {
+                                                    <div class="form-text small">Должно быть уникальным</div>
+                                                }
+                                            </div>
                                         </div>
                                     </div>
                                 }
@@ -116,36 +204,38 @@
 
                     @if (dateFields.Any())
                     {
-                        <div class="date-fields mb-4">
-                            <h6 class="border-bottom pb-2 mb-3">Даты</h6>
+                        <div class="fields-group">
+                            <h6 class="fields-group-title">Даты</h6>
                             <div class="row g-3">
                                 @foreach (var field in dateFields)
                                 {
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            @{
-                                                bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
-                                                string cssClass = hasError ? "form-control is-invalid" : "form-control";
-                                            }
+                                        <div class="form-field-container" title="@field.FieldLabel">
+                                            <div class="form-floating">
+                                                @{
+                                                    bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
+                                                    string cssClass = hasError ? "form-control is-invalid" : "form-control";
+                                                }
 
-                                            <input type="date"
-                                                   name="fieldValues[@field.FieldName]"
-                                                   id="@field.FieldName"
-                                                   class="@cssClass"
-                                                   value="@field.Value"
-                                                   required="@field.IsRequired"
-                                                   placeholder="@field.FieldLabel" />
+                                                <input type="date"
+                                                       name="fieldValues[@field.FieldName]"
+                                                       id="@field.FieldName"
+                                                       class="@cssClass"
+                                                       value="@field.Value"
+                                                       required="@field.IsRequired"
+                                                       placeholder="@field.FieldLabel" />
 
-                                            <label for="@field.FieldName">
-                                                @field.FieldLabel @(field.IsRequired ? "*" : "")
-                                            </label>
+                                                <label for="@field.FieldName">
+                                                    @field.FieldLabel @(field.IsRequired ? "*" : "")
+                                                </label>
 
-                                            @if (hasError)
-                                            {
-                                                <div class="invalid-feedback">
-                                                    @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
-                                                </div>
-                                            }
+                                                @if (hasError)
+                                                {
+                                                    <div class="invalid-feedback">
+                                                        @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                    </div>
+                                                }
+                                            </div>
                                         </div>
                                     </div>
                                 }
@@ -155,56 +245,58 @@
 
                     @if (otherFields.Any())
                     {
-                        <div class="other-fields">
-                            <h6 class="border-bottom pb-2 mb-3">Дополнительная информация</h6>
+                        <div class="fields-group mb-0 border-bottom-0 pb-0">
+                            <h6 class="fields-group-title">Дополнительная информация</h6>
                             <div class="row g-3">
                                 @foreach (var field in otherFields)
                                 {
                                     <div class="col-md-6">
-                                        <div class="form-floating">
-                                            @{
-                                                bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
-                                                string cssClass = hasError ? "form-control is-invalid" : "form-control";
-                                            }
+                                        <div class="form-field-container" title="@field.FieldLabel">
+                                            <div class="form-floating">
+                                                @{
+                                                    bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
+                                                    string cssClass = hasError ? "form-control is-invalid" : "form-control";
+                                                }
 
-                                            @if (field.FieldType == "select" && field.Options.Any())
-                                            {
-                                                <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="@cssClass">
-                                                    <option value="">-- Выберите --</option>
-                                                    @foreach (var option in field.Options)
-                                                    {
-                                                        if (option == field.Value)
+                                                @if (field.FieldType == "select" && field.Options.Any())
+                                                {
+                                                    <select name="fieldValues[@field.FieldName]" id="@field.FieldName" class="@cssClass">
+                                                        <option value="">-- Выберите --</option>
+                                                        @foreach (var option in field.Options)
                                                         {
-                                                            <option value="@option" selected>@option</option>
+                                                            if (option == field.Value)
+                                                            {
+                                                                <option value="@option" selected>@option</option>
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="@option">@option</option>
+                                                            }
                                                         }
-                                                        else
-                                                        {
-                                                            <option value="@option">@option</option>
-                                                        }
-                                                    }
-                                                </select>
-                                            }
-                                            else
-                                            {
-                                                <input type="text"
-                                                       name="fieldValues[@field.FieldName]"
-                                                       id="@field.FieldName"
-                                                       class="@cssClass"
-                                                       value="@field.Value"
-                                                       required="@field.IsRequired"
-                                                       placeholder="@field.FieldLabel" />
-                                            }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <input type="text"
+                                                           name="fieldValues[@field.FieldName]"
+                                                           id="@field.FieldName"
+                                                           class="@cssClass"
+                                                           value="@field.Value"
+                                                           required="@field.IsRequired"
+                                                           placeholder="@field.FieldLabel" />
+                                                }
 
-                                            <label for="@field.FieldName">
-                                                @field.FieldLabel @(field.IsRequired ? "*" : "")
-                                            </label>
+                                                <label for="@field.FieldName">
+                                                    @field.FieldLabel @(field.IsRequired ? "*" : "")
+                                                </label>
 
-                                            @if (hasError)
-                                            {
-                                                <div class="invalid-feedback">
-                                                    @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
-                                                </div>
-                                            }
+                                                @if (hasError)
+                                                {
+                                                    <div class="invalid-feedback">
+                                                        @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                    </div>
+                                                }
+                                            </div>
                                         </div>
                                     </div>
                                 }
@@ -217,10 +309,10 @@
 
         <!-- Правая колонка - Связанные документы -->
         <div class="col-md-4">
-            <div class="card">
-                <div class="card-header bg-white">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-diagram-3 text-primary me-2"></i> Связанные документы
+            <div class="card form-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-diagram-3"></i> Связанные документы
                     </h5>
                 </div>
                 <div class="card-body">
@@ -263,7 +355,7 @@
         </div>
     </div>
 
-    <div class="action-buttons mt-4 mb-5">
+    <div class="action-buttons">
         <button type="submit" class="btn btn-primary btn-lg">
             <i class="bi bi-save me-1"></i> Создать документ
         </button>
@@ -276,36 +368,6 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
-            // Функция для управления зависимыми полями
-            function updateFieldDependencies() {
-                // Находим все поля с зависимостями
-                $('[data-depends-on]').each(function () {
-                    const $field = $(this);
-                    const dependsOn = $field.data('depends-on');
-                    const dependsValue = $field.data('depends-value');
-                    const $parent = $field.closest('.form-group, .col-md-6');
-
-                    // Получаем значение поля, от которого зависит текущее
-                    const $dependField = $('#' + dependsOn);
-                    const dependFieldValue = $dependField.val();
-
-                    // Показываем/скрываем поле в зависимости от значения
-                    if (dependsValue === dependFieldValue) {
-                        $parent.show();
-                    } else {
-                        $parent.hide();
-                    }
-                });
-            }
-
-            // Обновляем при загрузке страницы
-            updateFieldDependencies();
-
-            // Обновляем при изменении полей
-            $('select, input').change(function () {
-                updateFieldDependencies();
-            });
-
             // Заполнение текущей даты для полей с датами
             $('input[type="date"]').each(function () {
                 const $this = $(this);
@@ -313,6 +375,11 @@
                     const today = new Date().toISOString().split('T')[0];
                     $this.val(today);
                 }
+            });
+
+            // Добавление тултипов для длинных меток полей
+            $('.form-field-container').tooltip({
+                trigger: 'hover'
             });
         });
     </script>

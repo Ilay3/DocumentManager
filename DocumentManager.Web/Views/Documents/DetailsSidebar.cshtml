@@ -1,8 +1,97 @@
 ﻿@model DocumentManager.Web.Models.DocumentViewModel
 
+<style>
+    /* Исправления для боковой панели */
+    .document-sidebar-content {
+        overflow-y: auto;
+        max-height: calc(100vh - 100px);
+        padding-right: 10px; /* Добавляем отступ, чтобы контент не прижимался к скроллбару */
+    }
+    
+    /* Скрываем стандартный скроллбар в современных браузерах */
+    .document-sidebar-content::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .document-sidebar-content::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .document-sidebar-content::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+    
+    .document-sidebar-content::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Улучшение элементов боковой панели */
+    .document-header {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    .document-actions {
+        margin-bottom: 1.5rem;
+    }
+    
+    .action-buttons .btn {
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .sidebar-section-title {
+        display: flex;
+        align-items: center;
+        font-size: 1rem;
+    }
+    
+    .sidebar-section-title i {
+        margin-right: 8px;
+        color: #3a7bd5;
+    }
+    
+    /* Таблицы внутри боковой панели */
+    .document-sidebar-content table {
+        font-size: 0.9rem;
+    }
+    
+    .document-sidebar-content th {
+        font-weight: 600;
+        color: #6c757d;
+        width: 40%;
+        vertical-align: top;
+        padding-left: 0;
+    }
+    
+    .document-sidebar-content td {
+        word-break: break-word;
+        padding-right: 0;
+    }
+    
+    /* Список связанных документов */
+    .related-section .list-group-item {
+        padding: 0.75rem 0.5rem;
+        transition: background-color 0.2s;
+    }
+    
+    .related-section .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    /* Опасная зона */
+    .danger-section {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #eee;
+    }
+</style>
+
 <div class="document-sidebar-content">
     <!-- Document header with status badge -->
-    <div class="document-header mb-4">
+    <div class="document-header">
         <h5 class="d-flex align-items-center">
             <span class="me-2">@Model.FactoryNumber</span>
             @if (!string.IsNullOrWhiteSpace(Model.GeneratedFilePath))
@@ -39,11 +128,6 @@
                         <i class="bi bi-download"></i> Скачать
                     </a>
                 </div>
-                <div class="col">
-                    <a href="@Url.Action("PrintPdf", "Documents", new { id = Model.Id })" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-printer"></i> Печать
-                    </a>
-                </div>
             }
             else
             {
@@ -63,16 +147,16 @@
         </h6>
         <table class="table table-sm">
             <tr>
-                <th class="ps-0" style="width: 40%;">Дата создания</th>
-                <td class="pe-0">@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                <th>Дата создания</th>
+                <td>@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
             </tr>
             <tr>
-                <th class="ps-0">Создал</th>
-                <td class="pe-0">@Model.CreatedBy</td>
+                <th>Создал</th>
+                <td>@Model.CreatedBy</td>
             </tr>
             <tr>
-                <th class="ps-0">Код шаблона</th>
-                <td class="pe-0">@Model.TemplateCode</td>
+                <th>Код шаблона</th>
+                <td>@Model.TemplateCode</td>
             </tr>
         </table>
     </div>
@@ -82,7 +166,7 @@
         <h6 class="sidebar-section-title">
             <i class="bi bi-list-check"></i> Значения полей
         </h6>
-        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+        <div class="table-responsive">
             <table class="table table-sm table-hover">
                 <thead class="table-light">
                     <tr>
@@ -99,7 +183,6 @@
                                 @{
                                     string fieldLabel = field.Key;
 
-                                    // Ищем документ и поле для получения русского названия
                                     var documentField = Model.DocumentFields?.FirstOrDefault(f =>
                                     f.FieldName.Equals(field.Key, StringComparison.OrdinalIgnoreCase));
 
@@ -108,12 +191,11 @@
                                         fieldLabel = documentField.FieldLabel;
                                     }
                                 }
-                                <td>@fieldLabel</td>
-                                <td>@field.Value</td>
+                                <td title="@fieldLabel">@(fieldLabel.Length > 15 ? fieldLabel.Substring(0, 15) + "..." : fieldLabel)</td>
+                                <td title="@field.Value">@field.Value</td>
                             </tr>
                         }
                     }
-
                 </tbody>
             </table>
         </div>
@@ -154,23 +236,9 @@
     }
 
     <!-- Danger zone -->
-    <div class="danger-section mt-4 pt-3 border-top">
+    <div class="danger-section">
         <a href="@Url.Action("Delete", "Documents", new { id = Model.Id })" class="btn btn-outline-danger btn-sm">
             <i class="bi bi-trash"></i> Удалить документ
         </a>
     </div>
 </div>
-
-<style>
-    .document-sidebar-content {
-        overflow-y: auto;
-        max-height: calc(100vh - 100px);
-    }
-
-    .sidebar-section-title {
-        border-bottom: 1px solid #eee;
-        padding-bottom: 0.5rem;
-        margin-bottom: 0.75rem;
-        color: #2b5797;
-    }
-</style>
