@@ -104,6 +104,11 @@
                                                 badgeClass = "bg-success";
                                                 displayType = "Упаковочный лист";
                                             }
+                                        else if (template.Type == "PackingInventory")
+                                        {
+                                            badgeClass = "bg-danger";
+                                            displayType = "Упаковочная Ведомость";
+                                        }
                                         }
                                     <span class="badge @badgeClass">@displayType</span>
                                 </td>

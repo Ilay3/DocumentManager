@@ -27,7 +27,94 @@
             --warning-color: #ffc107;
             --info-color: #17a2b8;
         }
-        
+        /* Стили для нового блока профиля пользователя */
+        .sidebar-footer {
+        margin-top: auto;
+        padding-top: 1rem;
+        }
+
+        .divider-light {
+        opacity: 0.1;
+        margin: 0.5rem 0 1rem 0;
+        }
+
+        .user-profile-card {
+        padding: 0.75rem 0.5rem;
+        border-radius: 8px;
+        transition: background-color 0.2s ease;
+        }
+
+        .user-profile-card:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .user-info {
+        display: flex;
+        align-items: center;
+        }
+
+        .avatar {
+        width: 36px;
+        height: 36px;
+        margin-right: 12px;
+        flex-shrink: 0;
+        }
+
+        .avatar-initials {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-details {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        }
+
+        .username {
+        color: rgba(255, 255, 255, 0.95);
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        }
+
+        .logout-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.6);
+        text-decoration: none;
+        transition: color 0.2s ease;
+        padding: 2px 0;
+        }
+
+        .logout-link:hover {
+        color: rgba(255, 255, 255, 0.95);
+        }
+
+        .logout-link i {
+        font-size: 0.85rem;
+        }
+
+        /* Стили для мобильной версии */
+        @@media (max-width: 991.98px) {
+        .sidebar-footer {
+            display: none;
+        }
+        }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f7fa;
@@ -326,14 +413,30 @@
                         </li>
                     </ul>
                     <hr>
-                    <div class="dropdown">
-                        <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle fs-4 me-2"></i>
-                            <span>@(Context.Session.GetString("CurrentUser") ?? "Гость")</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
-                            <li><a class="dropdown-item" href="/Auth/Logout">Выйти</a></li>
-                        </ul>
+                    <div class="sidebar-footer">
+                        <hr class="divider-light">
+                        <div class="user-profile-card">
+                            <div class="user-info">
+                                <div class="avatar">
+                                    <div class="avatar-initials">
+                                        @{
+                                            string userName = Context.Session.GetString("CurrentUser") ?? "Гость";
+                                            string initials = !string.IsNullOrEmpty(userName) && userName.Length > 0
+                                            ? userName[0].ToString().ToUpper()
+                                            : "Г";
+                                        }
+                                        @initials
+                                    </div>
+                                </div>
+                                <div class="user-details">
+                                    <div class="username">@userName</div>
+                                    <a href="/Auth/Logout" class="logout-link">
+                                        <span>Выйти</span>
+                                        <i class="bi bi-box-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

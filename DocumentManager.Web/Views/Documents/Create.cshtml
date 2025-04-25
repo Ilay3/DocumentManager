@@ -4,121 +4,593 @@
     ViewData["Title"] = "Выбор шаблона документа";
 }
 
-<div class="row mb-4">
-    <div class="col">
-        <h1 class="display-6 mb-0">
+<style>
+    /* Стили для страницы выбора шаблона */
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
+    .page-title {
+        font-weight: 700;
+        position: relative;
+        padding-bottom: 0.75rem;
+    }
+    
+    .page-title:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(to right, #3a7bd5, #00d2ff);
+        border-radius: 3px;
+    }
+    
+    /* Панель фильтров */
+    .filter-panel {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.03);
+    }
+    
+    .template-tabs {
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 1.5rem;
+    }
+    
+    .template-tabs .nav-link {
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.75rem 1.25rem;
+        border: none;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        margin-right: 0.5rem;
+        transition: all 0.2s;
+    }
+    
+    .template-tabs .nav-link:hover {
+        color: #3a7bd5;
+        background-color: #f8f9fa;
+        border-bottom: 3px solid #e9ecef;
+    }
+    
+    .template-tabs .nav-link.active {
+        color: #3a7bd5;
+        background-color: transparent;
+        border-bottom: 3px solid #3a7bd5;
+        font-weight: 600;
+    }
+    
+    .template-tabs .nav-link i {
+        margin-right: 8px;
+    }
+    
+    /* Карточки шаблонов */
+    .template-card {
+        transition: all 0.3s ease;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+        height: 100%;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.03);
+        position: relative;
+    }
+    
+    .template-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* Тип шаблона (верхняя полоса) */
+    .template-card:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .passport-template:before {
+        background: linear-gradient(to right, #3a7bd5, #00d2ff);
+    }
+    
+    .packing-template:before {
+        background: linear-gradient(to right, #2ecc71, #26de81);
+    }
+    
+    .inventory-template:before {
+        background: linear-gradient(to right, #f39c12, #f1c40f);
+    }
+    
+    .template-icon-container {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+    }
+    
+    .passport-icon {
+        background: linear-gradient(135deg, rgba(58, 123, 213, 0.1), rgba(0, 210, 255, 0.05));
+        color: #3a7bd5;
+    }
+    
+    .packing-icon {
+        background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(38, 222, 129, 0.05));
+        color: #2ecc71;
+    }
+    
+    .inventory-icon {
+        background: linear-gradient(135deg, rgba(243, 156, 18, 0.1), rgba(241, 196, 15, 0.05));
+        color: #f39c12;
+    }
+    
+    .template-icon {
+        font-size: 1.5rem;
+    }
+    
+    .template-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .template-code {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+    
+    .template-badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 50rem;
+        font-weight: 500;
+    }
+    
+    .template-description {
+        margin-top: 1rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .template-footer {
+        margin-top: auto;
+        padding-top: 1rem;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    /* Пустое состояние */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #e9ecef;
+        margin-bottom: 1.5rem;
+    }
+    
+    .empty-state-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state-description {
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Анимации */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in-up {
+        animation: fadeInUp 0.4s ease-out;
+    }
+</style>
+
+<div class="page-header row mb-4">
+    <div class="col-md-12">
+        <h1 class="page-title display-6 mb-0">
             <i class="bi bi-file-earmark-plus text-primary me-2"></i> Создание документа
         </h1>
-        <p class="text-muted mt-2">Выберите тип документа для создания</p>
+        <p class="text-muted mt-2">Выберите шаблон для создания нового документа</p>
     </div>
 </div>
 
-<div class="row g-4">
-    @if (!Model.Any())
-    {
-        <div class="col-12">
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle-fill me-2"></i> Шаблоны документов не найдены. Обратитесь к администратору системы.
+<!-- Фильтр -->
+<div class="filter-panel">
+    <div class="row g-3">
+        <div class="col-md-12">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" id="templateSearchInput" class="form-control" placeholder="Поиск шаблонов...">
             </div>
         </div>
-    }
-    else
-    {
-        @foreach (var template in Model)
+    </div>
+</div>
+
+<!-- Вкладки категорий -->
+<ul class="nav nav-tabs template-tabs" id="templateTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="all-templates-tab" data-bs-toggle="tab" data-bs-target="#all-templates-pane" 
+                type="button" role="tab" aria-controls="all-templates-pane" aria-selected="true">
+            <i class="bi bi-grid-3x3-gap"></i> Все шаблоны
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="passport-templates-tab" data-bs-toggle="tab" data-bs-target="#passport-templates-pane" 
+                type="button" role="tab" aria-controls="passport-templates-pane" aria-selected="false">
+            <i class="bi bi-journal-bookmark"></i> Паспорта
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="packing-templates-tab" data-bs-toggle="tab" data-bs-target="#packing-templates-pane" 
+                type="button" role="tab" aria-controls="packing-templates-pane" aria-selected="false">
+            <i class="bi bi-box-seam"></i> Упаковочные листы
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="inventory-templates-tab" data-bs-toggle="tab" data-bs-target="#inventory-templates-pane" 
+                type="button" role="tab" aria-controls="inventory-templates-pane" aria-selected="false">
+            <i class="bi bi-clipboard-check"></i> Упаковочные ведомости
+        </button>
+    </li>
+</ul>
+
+<!-- Содержимое вкладок -->
+<div class="tab-content" id="templateTabsContent">
+    <!-- Все шаблоны -->
+    <div class="tab-pane fade show active" id="all-templates-pane" role="tabpanel" aria-labelledby="all-templates-tab">
+        @if (!Model.Any())
         {
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 template-card">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="template-icon rounded-circle bg-light text-primary d-flex align-items-center justify-content-center me-3">
-                                @{
-                                    string iconClass = "bi-file-earmark-text";
-                                    if (template.Type == "Passport") { iconClass = "bi-journal-bookmark"; }
-                                    else if (template.Type == "PackingList") { iconClass = "bi-box-seam"; }
-                                }
-                                <i class="bi @iconClass fs-4"></i>
-                            </div>
-                            <div>
-                                <h5 class="card-title mb-0">@template.Name</h5>
-                                <div class="text-muted small">@template.Code</div>
-                            </div>
-                        </div>
-
-                        <div class="template-type mb-3">
-                            <span class="badge bg-light text-dark border">@template.Type</span>
-                            @if (template.IsActive)
-                            {
-                                <span class="badge bg-success ms-1">Активен</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-danger ms-1">Отключен</span>
-                            }
-                        </div>
-
-                        <div class="template-description">
-                            <p class="text-muted mb-0">
-                                @if (!string.IsNullOrEmpty(template.Type))
-                                {
-                                    if (template.Type == "Passport")
-                                    {
-                                        <span>Паспорт устройства с техническими характеристиками и информацией о настройках.</span>
-                                    }
-                                    else if (template.Type == "PackingList")
-                                    {
-                                        <span>Упаковочный лист с перечнем комплектующих и аксессуаров.</span>
-                                    }
-                                    else
-                                    {
-                                        <span>Документ типа "@template.Type" для сертификации и учета.</span>
-                                    }
-                                }
-                                else
-                                {
-                                    <span>Документ для оформления и учета продукции.</span>
-                                }
-                            </p>
-                        </div>
-
-                        <div class="mt-auto pt-3">
-                            @if (template.IsActive)
-                            {
-                                <a href="@Url.Action("CreateForm", "Documents", new { id = template.Id })" class="btn btn-primary w-100">
-                                    <i class="bi bi-pencil-square me-1"></i> Выбрать шаблон
-                                </a>
-                            }
-                            else
-                            {
-                                <button class="btn btn-secondary w-100" disabled>
-                                    <i class="bi bi-lock me-1"></i> Шаблон отключен
-                                </button>
-                            }
-                        </div>
+            <div class="card">
+                <div class="card-body empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-file-earmark-x"></i>
                     </div>
+                    <h4 class="empty-state-title">Шаблоны документов не найдены</h4>
+                    <p class="empty-state-description">В системе отсутствуют шаблоны для создания документов</p>
                 </div>
             </div>
         }
-    }
+        else
+        {
+            <div class="row g-4 template-container">
+                @foreach (var template in Model.Where(t => t.IsActive))
+                {
+                    string templateType = "other-template";
+                    string iconClass = "bi-file-earmark-text";
+                    string iconBgClass = "";
+                    
+                    if (template.Type == "Passport" || template.Name.Contains("Паспорт") || template.Code.Contains("ПС"))
+                    {
+                        templateType = "passport-template";
+                        iconClass = "bi-journal-bookmark";
+                        iconBgClass = "passport-icon";
+                    }
+                    else if (template.Type == "PackingList" || template.Name.Contains("Упаковочный"))
+                    {
+                        templateType = "packing-template";
+                        iconClass = "bi-box-seam";
+                        iconBgClass = "packing-icon";
+                    }
+                    else if (template.Type == "PackingInventory" || template.Name.Contains("Ведомость"))
+                    {
+                        templateType = "inventory-template";
+                        iconClass = "bi-clipboard-check";
+                        iconBgClass = "inventory-icon";
+                    }
+                    
+                    <div class="col-lg-4 col-md-6 template-item fade-in-up">
+                        <div class="card template-card @templateType h-100">
+                            <div class="card-body d-flex flex-column">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="template-icon-container @iconBgClass">
+                                        <i class="bi @iconClass template-icon"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="template-title">@template.Name</h5>
+                                        <div class="template-code">@template.Code</div>
+                                    </div>
+                                </div>
+                                
+                                
+                                
+                                <div class="template-footer">
+                                    <a href="@Url.Action("CreateForm", "Documents", new { id = template.Id })" class="btn btn-primary w-100">
+                                        <i class="bi bi-plus-circle me-2"></i> Выбрать шаблон
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+    
+    <!-- Паспорта -->
+    <div class="tab-pane fade" id="passport-templates-pane" role="tabpanel" aria-labelledby="passport-templates-tab">
+        @{
+            var passportTemplates = Model.Where(t => t.IsActive && (t.Type == "Passport" || t.Name.Contains("Паспорт") || t.Code.Contains("ПС"))).ToList();
+            if (!passportTemplates.Any())
+            {
+                <div class="card">
+                    <div class="card-body empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-journal-bookmark"></i>
+                        </div>
+                        <h4 class="empty-state-title">Шаблоны паспортов не найдены</h4>
+                        <p class="empty-state-description">В системе отсутствуют активные шаблоны паспортов</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-4 template-container">
+                    @foreach (var template in passportTemplates)
+                    {
+                        <div class="col-lg-4 col-md-6 template-item fade-in-up">
+                            <div class="card template-card passport-template h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="template-icon-container passport-icon">
+                                            <i class="bi bi-journal-bookmark template-icon"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="template-title">@template.Name</h5>
+                                            <div class="template-code">@template.Code</div>
+                                        </div>
+                                    </div>
+                                    
+                                   
+                                    
+                                    <div class="template-footer">
+                                        <a href="@Url.Action("CreateForm", "Documents", new { id = template.Id })" class="btn btn-primary w-100">
+                                            <i class="bi bi-plus-circle me-2"></i> Выбрать шаблон
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+    
+    <!-- Упаковочные листы -->
+    <div class="tab-pane fade" id="packing-templates-pane" role="tabpanel" aria-labelledby="packing-templates-tab">
+        @{
+            var packingTemplates = Model.Where(t => t.IsActive && (t.Type == "PackingList" || t.Name.Contains("Упаковочный"))).ToList();
+            if (!packingTemplates.Any())
+            {
+                <div class="card">
+                    <div class="card-body empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <h4 class="empty-state-title">Шаблоны упаковочных листов не найдены</h4>
+                        <p class="empty-state-description">В системе отсутствуют активные шаблоны упаковочных листов</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-4 template-container">
+                    @foreach (var template in packingTemplates)
+                    {
+                        <div class="col-lg-4 col-md-6 template-item fade-in-up">
+                            <div class="card template-card packing-template h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="template-icon-container packing-icon">
+                                            <i class="bi bi-box-seam template-icon"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="template-title">@template.Name</h5>
+                                            <div class="template-code">@template.Code</div>
+                                        </div>
+                                    </div>
+                                    
+                                   
+                                    <div class="template-footer">
+                                        <a href="@Url.Action("CreateForm", "Documents", new { id = template.Id })" class="btn btn-success w-100">
+                                            <i class="bi bi-plus-circle me-2"></i> Выбрать шаблон
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+    
+    <!-- Упаковочные ведомости -->
+    <div class="tab-pane fade" id="inventory-templates-pane" role="tabpanel" aria-labelledby="inventory-templates-tab">
+        @{
+            var inventoryTemplates = Model.Where(t => t.IsActive && (t.Type == "PackingInventory" || t.Name.Contains("Ведомость"))).ToList();
+            if (!inventoryTemplates.Any())
+            {
+                <div class="card">
+                    <div class="card-body empty-state">
+                        <div class="empty-state-icon">
+                            <i class="bi bi-clipboard-check"></i>
+                        </div>
+                        <h4 class="empty-state-title">Шаблоны упаковочных ведомостей не найдены</h4>
+                        <p class="empty-state-description">В системе отсутствуют активные шаблоны упаковочных ведомостей</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-4 template-container">
+                    @foreach (var template in inventoryTemplates)
+                    {
+                        <div class="col-lg-4 col-md-6 template-item fade-in-up">
+                            <div class="card template-card inventory-template h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="template-icon-container inventory-icon">
+                                            <i class="bi bi-clipboard-check template-icon"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="template-title">@template.Name</h5>
+                                            <div class="template-code">@template.Code</div>
+                                        </div>
+                                    </div>
+                                    
+                                    
+                                    
+                                    <div class="template-footer">
+                                        <a href="@Url.Action("CreateForm", "Documents", new { id = template.Id })" class="btn btn-warning text-white w-100">
+                                            <i class="bi bi-plus-circle me-2"></i> Выбрать шаблон
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
 </div>
 
-<div class="mt-4 mb-5">
-    <a href="@Url.Action("Index", "Documents")" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Назад к списку документов
-    </a>
-</div>
-
-<style>
-    .template-icon {
-        width: 48px;
-        height: 48px;
-    }
-
-    .template-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .template-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    }
-</style>
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Сохранение выбранной вкладки в localStorage
+            $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+                localStorage.setItem('activeDocumentTemplateTab', $(e.target).attr('id'));
+            });
+            
+            // Проверяем, есть ли сохраненная вкладка
+            var activeTab = localStorage.getItem('activeDocumentTemplateTab');
+            if (activeTab) {
+                $('#' + activeTab).tab('show');
+            }
+            
+            // Анимация для карточек при активации вкладки
+            $('.nav-tabs button').on('shown.bs.tab', function (e) {
+                const targetId = $(this).data('bs-target');
+                
+                $(targetId).find('.template-item').each(function(index) {
+                    $(this).css({
+                        'opacity': 0,
+                        'transform': 'translateY(20px)'
+                    });
+                    
+                    setTimeout(() => {
+                        $(this).css({
+                            'transition': 'all 0.4s ease',
+                            'opacity': 1,
+                            'transform': 'translateY(0)'
+                        });
+                    }, 50 + (index * 60));
+                });
+            });
+            
+            // Подсчет шаблонов для каждой категории и добавление бейджей на вкладки
+            const passportCount = $('#passport-templates-pane .template-item').length;
+            const packingCount = $('#packing-templates-pane .template-item').length;
+            const inventoryCount = $('#inventory-templates-pane .template-item').length;
+            const totalCount = $('#all-templates-pane .template-item').length;
+            
+            if (totalCount > 0) {
+                $('#all-templates-tab').append('<span class="badge bg-light text-dark ms-2">' + totalCount + '</span>');
+            }
+            
+            if (passportCount > 0) {
+                $('#passport-templates-tab').append('<span class="badge bg-light text-primary ms-2">' + passportCount + '</span>');
+            }
+            
+            if (packingCount > 0) {
+                $('#packing-templates-tab').append('<span class="badge bg-light text-success ms-2">' + packingCount + '</span>');
+            }
+            
+            if (inventoryCount > 0) {
+                $('#inventory-templates-tab').append('<span class="badge bg-light text-info ms-2">' + inventoryCount + '</span>');
+            }
+            
+            // Поиск шаблонов
+            $('#templateSearchInput').on('keyup', function() {
+                const searchText = $(this).val().toLowerCase();
+                
+                $('.template-item').each(function() {
+                    const cardText = $(this).text().toLowerCase();
+                    const isVisible = cardText.indexOf(searchText) > -1;
+                    $(this).toggle(isVisible);
+                    
+                    if (isVisible) {
+                        $(this).addClass('search-result');
+                    } else {
+                        $(this).removeClass('search-result');
+                    }
+                });
+                
+                // Показываем сообщение, если нет результатов в активной вкладке
+                $('.tab-pane.active').each(function() {
+                    const visibleCards = $(this).find('.template-item:visible').length;
+                    const noResultsMsg = $(this).find('.no-results-message');
+                    
+                    if (visibleCards === 0 && searchText.length > 0) {
+                        if (noResultsMsg.length === 0) {
+                            $(this).append('<div class="alert alert-info mt-3 no-results-message">Нет шаблонов, соответствующих поисковому запросу</div>');
+                        }
+                    } else {
+                        noResultsMsg.remove();
+                    }
+                });
+                
+                // Обновляем счетчики на вкладках
+                const allVisible = $('#all-templates-pane .template-item:visible').length;
+                const passportVisible = $('#passport-templates-pane .template-item:visible').length;
+                const packingVisible = $('#packing-templates-pane .template-item:visible').length;
+                const inventoryVisible = $('#inventory-templates-pane .template-item:visible').length;
+                
+                $('#all-templates-tab .badge').text(allVisible);
+                $('#passport-templates-tab .badge').text(passportVisible);
+                $('#packing-templates-tab .badge').text(packingVisible);
+                $('#inventory-templates-tab .badge').text(inventoryVisible);
+            });
+            
+            // Анимация для начальных карточек
+            $('.template-item').each(function(index) {
+                $(this).css({
+                    'opacity': 0,
+                    'transform': 'translateY(20px)'
+                });
+                
+                setTimeout(() => {
+                    $(this).css({
+                        'transition': 'all 0.4s ease',
+                        'opacity': 1,
+                        'transform': 'translateY(0)'
+                    });
+                }, 100 + (index * 60));
+            });
+        });
+    </script>
+}

@@ -334,14 +334,15 @@
                                     }
                                     <label class="form-check-label" for="related-@relatedTemplate.Id">
                                         <div class="fw-semibold">@relatedTemplate.Name</div>
-                                        <div class="text-muted small">@relatedTemplate.Type</div>
+                                        <div class="text-muted small">@relatedTemplate.GetLocalizedType() (Код: @relatedTemplate.Code)</div>
                                     </label>
                                 </div>
                             }
                         </div>
 
                         <div class="alert alert-info mt-3 small">
-                            <i class="bi bi-info-circle"></i> Связанные документы будут созданы автоматически с тем же заводским номером.
+                            <i class="bi bi-info-circle"></i> Отображаются только документы, логически связанные с "@Model.TemplateName".
+                            Связанные документы будут созданы с тем же заводским номером.
                         </div>
                     }
                     else
@@ -353,7 +354,7 @@
                 </div>
             </div>
         </div>
-    </div>
+
 
     <div class="action-buttons">
         <button type="submit" class="btn btn-primary btn-lg">

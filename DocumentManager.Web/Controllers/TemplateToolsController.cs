@@ -411,6 +411,27 @@ namespace DocumentManager.Web.Controllers
    (гидравлический 2,5 бар № {{{{ PressureConverterSerial_2_5 }}}} , длина кабеля L=2900±40мм)
 ";
                         }
+                        else if (templatePath.Contains("301-07") || templatePath.Contains("PackingInventory"))
+                        {
+                            templateContent = $@"УПАКОВОЧНАЯ ВЕДОМОСТЬ
+Регулятор частоты вращения электродвигателей
+ЭРЧМ30Т3-10
+зав. № {{{{ FactoryNumber }}}}
+
+Дата упаковки: {{{{ PackagingDate }}}}
+
+Содержимое упаковочной ведомости:
+1. Наименование изделия: {{{{ ProductName }}}}
+2. Заводской номер: {{{{ FactoryNumber }}}}
+3. Количество мест: {{{{ PackageCount }}}}
+4. Комплектация согласно паспорту № {{{{ PassportNumber }}}}
+5. Примечания: {{{{ Notes }}}}
+
+Упаковщик: {{{{ PackerName }}}}
+Дата: {{{{ PackingDate }}}}
+";
+                        }
+
                         else
                         {
                             templateContent = $@"ШАБЛОН ДОКУМЕНТА: {documentName ?? Path.GetFileNameWithoutExtension(jsonFile)}

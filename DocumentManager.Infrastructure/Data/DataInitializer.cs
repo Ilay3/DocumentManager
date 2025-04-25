@@ -107,10 +107,17 @@ namespace DocumentManager.Infrastructure.Data
                                 {
                                     documentType = "PackingList";
                                 }
+                                else if (relativePath.Contains("PackingInventory", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Contains("Уп. вед.", StringComparison.OrdinalIgnoreCase) ||
+                                          name.Contains("Упаковочная ведомость", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    documentType = "PackingInventory";
+                                }
                                 else
                                 {
                                     documentType = "Other";
                                 }
+
 
                                 // Проверяем существование шаблона Word
                                 string wordTemplatePath = templatePath;

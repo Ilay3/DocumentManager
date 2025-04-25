@@ -117,6 +117,12 @@ namespace DocumentManager.Infrastructure.Services
                             {
                                 documentType = "PackingList";
                             }
+                            else if (relativePath.Contains("PackingInventory", StringComparison.OrdinalIgnoreCase) ||
+                                           name.Contains("Уп. вед.", StringComparison.OrdinalIgnoreCase) ||
+                                           name.Contains("Упаковочная ведомость", StringComparison.OrdinalIgnoreCase))
+                            {
+                                documentType = "PackingInventory";
+                            }
                             else
                             {
                                 documentType = "Other";

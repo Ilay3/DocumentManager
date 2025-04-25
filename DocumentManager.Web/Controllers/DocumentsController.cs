@@ -1,6 +1,7 @@
 ﻿using DocumentManager.Core.Entities;
 using DocumentManager.Core.Interfaces;
 using DocumentManager.Infrastructure.Services;
+using DocumentManager.Web.Helpers;
 using DocumentManager.Web.Models;
 using DocumentManager.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -256,8 +257,11 @@ namespace DocumentManager.Web.Controllers
                     }).ToList()
                 };
 
-                var relatedTemplates = (await _templateService.GetAllTemplatesAsync())
-                    .Where(t => t.Id != id && t.Type == "PackingList")
+                // Получаем все шаблоны документов
+                var allTemplates = await _templateService.GetAllTemplatesAsync();
+
+                // Используем вспомогательный класс для определения связанных шаблонов
+                var relatedTemplates = DocumentRelationHelper.FindRelatedTemplates(template, allTemplates)
                     .Select(t => new DocumentTemplateViewModel
                     {
                         Id = t.Id,
@@ -265,7 +269,10 @@ namespace DocumentManager.Web.Controllers
                         Name = t.Name,
                         Type = t.Type,
                         IsActive = t.IsActive
-                    }).ToList();
+                    })
+                    .ToList();
+
+                _logger.LogInformation($"Найдено {relatedTemplates.Count} связанных шаблонов для {template.Type} {template.Code}");
 
                 viewModel.RelatedTemplates = relatedTemplates;
 
@@ -347,9 +354,11 @@ namespace DocumentManager.Web.Controllers
                         SelectedRelatedTemplateIds = selectedRelatedTemplateIds
                     };
 
-                    // Получаем связанные шаблоны (упаковочные листы)
-                    var relatedTemplates = (await _templateService.GetAllTemplatesAsync())
-                        .Where(t => t.Id != templateId && t.Type == "PackingList")
+                    // Получаем связанные шаблоны (включая неактивные)
+                    var relatedTemplates = (await _templateService.GetAllTemplatesAsync(includeInactive: true))
+                        .Where(t => t.Id != templateId &&
+                               (t.Type == "PackingList" || t.Type == "PackingInventory") &&
+                               t.IsActive) 
                         .Select(t => new DocumentTemplateViewModel
                         {
                             Id = t.Id,
