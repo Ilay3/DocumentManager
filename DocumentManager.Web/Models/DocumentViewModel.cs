@@ -1,7 +1,9 @@
 ﻿namespace DocumentManager.Web.Models
 {
+    // Добавьте следующие свойства в класс DocumentViewModel
     public class DocumentViewModel
     {
+        // Существующие свойства...
         public int Id { get; set; }
         public int TemplateId { get; set; }
         public string TemplateCode { get; set; }
@@ -14,6 +16,12 @@
         public List<DocumentViewModel> RelatedDocuments { get; set; } = new List<DocumentViewModel>();
         public List<DocumentFieldViewModel> DocumentFields { get; set; } = new List<DocumentFieldViewModel>();
 
+        // Новые свойства для группировки
+        public bool IsMainDocument { get; set; } = true; // По умолчанию документ основной
+        public bool HasRelatedDocuments => RelatedDocuments?.Any() == true;
+        public int RelatedDocumentsCount => RelatedDocuments?.Count ?? 0;
+        public int? ParentDocumentId { get; set; } // ID родительского документа, если это связанный документ
+        public string DocumentGroupId { get; set; } // Идентификатор группы документов (обычно равен FactoryNumber)
     }
 
 }

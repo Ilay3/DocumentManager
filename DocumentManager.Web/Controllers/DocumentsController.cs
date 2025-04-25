@@ -101,6 +101,7 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
+        // Обновите метод Index в DocumentsController.cs
         public async Task<IActionResult> Index(
             string factoryNumber = null,
             int? templateId = null,
@@ -151,21 +152,43 @@ namespace DocumentManager.Web.Controllers
                 var totalCount = filteredDocuments.Count();
                 var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-                filteredDocuments = filteredDocuments
+                // Получаем основные документы для текущей страницы
+                var mainDocuments = filteredDocuments
                     .Skip((page - 1) * pageSize)
-                    .Take(pageSize);
+                    .Take(pageSize)
+                    .ToList();
 
-                var documentViewModels = filteredDocuments.Select(d => new DocumentViewModel
+                // Создаем список для моделей представления
+                var documentViewModels = new List<DocumentViewModel>();
+
+                // Заполняем информацию для каждого основного документа
+                foreach (var doc in mainDocuments)
                 {
-                    Id = d.Id,
-                    TemplateId = d.DocumentTemplateId,
-                    TemplateCode = d.DocumentTemplate.Code,
-                    TemplateName = d.DocumentTemplate.Name,
-                    FactoryNumber = d.FactoryNumber,
-                    CreatedAt = d.CreatedAt,
-                    CreatedBy = d.CreatedBy,
-                    GeneratedFilePath = d.GeneratedFilePath
-                }).ToList();
+                    var viewModel = new DocumentViewModel
+                    {
+                        Id = doc.Id,
+                        TemplateId = doc.DocumentTemplateId,
+                        TemplateCode = doc.DocumentTemplate.Code,
+                        TemplateName = doc.DocumentTemplate.Name,
+                        FactoryNumber = doc.FactoryNumber,
+                        CreatedAt = doc.CreatedAt,
+                        CreatedBy = doc.CreatedBy,
+                        GeneratedFilePath = doc.GeneratedFilePath,
+                        IsMainDocument = true,
+                        DocumentGroupId = doc.FactoryNumber
+                    };
+
+                    // Проверяем наличие связанных документов
+                    bool hasRelated = await _documentService.GetRelatedDocumentsAsync(doc.Id).ContinueWith(t => t.Result.Any());
+                    if (hasRelated)
+                    {
+                        // Для списка нам не нужно загружать все связанные документы, достаточно знать их количество
+                        int relatedCount = await _documentService.GetRelatedDocumentsAsync(doc.Id).ContinueWith(t => t.Result.Count());
+                        viewModel.RelatedDocuments = Enumerable.Range(0, relatedCount).Select(_ => new DocumentViewModel()).ToList();
+                    }
+
+                    documentViewModels.Add(viewModel);
+                }
 
                 var templates = await _templateService.GetAllTemplatesAsync();
                 var templateViewModels = templates.Select(t => new DocumentTemplateViewModel
@@ -532,6 +555,7 @@ namespace DocumentManager.Web.Controllers
         }
 
 
+        // Обновите метод GenerateDocument в DocumentsController.cs
         private async Task GenerateDocument(int documentId, string operationId)
         {
             try
@@ -549,6 +573,7 @@ namespace DocumentManager.Web.Controllers
 
                 // Получаем связанные документы (упаковочные листы)
                 var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(documentId);
+                int totalDocuments = 1 + (relatedDocuments?.Count() ?? 0);
 
                 // Формируем абсолютный URL с ведущим слешем
                 string downloadUrl = $"/Documents/Download/{documentId}";
@@ -574,6 +599,7 @@ namespace DocumentManager.Web.Controllers
                     await _documentService.UpdateDocumentContentAsync(documentId, content, filePath);
 
                     // Генерируем связанные документы
+                    int relatedDocsGenerated = 0;
                     if (relatedDocuments != null && relatedDocuments.Any())
                     {
                         _progressService.UpdateProgress(operationId, 60, $"Генерация связанных документов ({relatedDocuments.Count()})...");
@@ -581,6 +607,7 @@ namespace DocumentManager.Web.Controllers
                         foreach (var relatedDoc in relatedDocuments)
                         {
                             current++;
+                            relatedDocsGenerated++;
                             _progressService.UpdateProgress(operationId, 60 + (current * 20 / relatedDocuments.Count()),
                                 $"Генерация связанного документа {current}/{relatedDocuments.Count()}...");
 
@@ -592,6 +619,7 @@ namespace DocumentManager.Web.Controllers
                             }
                             catch (Exception ex)
                             {
+                                relatedDocsGenerated--;
                                 _logger.LogError(ex, $"Ошибка при генерации связанного документа ID {relatedDoc.Id}");
                                 // Продолжаем генерацию других связанных документов
                             }
@@ -600,8 +628,19 @@ namespace DocumentManager.Web.Controllers
 
                     _progressService.UpdateProgress(operationId, 90, "Завершение...");
 
+                    // Формируем сообщение о завершении
+                    string completionMessage;
+                    if (relatedDocsGenerated > 0)
+                    {
+                        completionMessage = $"Успешно сгенерирован пакет из {relatedDocsGenerated + 1} документов";
+                    }
+                    else
+                    {
+                        completionMessage = "Документ успешно сгенерирован";
+                    }
+
                     // Используем заранее сформированный URL
-                    _progressService.CompleteOperation(operationId, "Документы успешно сгенерированы");
+                    _progressService.CompleteOperation(operationId, completionMessage);
                     _progressService.GetProgress(operationId).Result = downloadUrl;
                 }
                 catch (Exception ex)
@@ -756,6 +795,87 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("Documents/DownloadAll/{id}")]
+        public async Task<IActionResult> DownloadAll(int id)
+        {
+            try
+            {
+                // Получаем основной документ
+                var document = await _documentService.GetDocumentByIdAsync(id);
+
+                if (document == null)
+                {
+                    _logger.LogWarning($"Документ с ID {id} не найден");
+                    return NotFound();
+                }
+
+                // Получаем связанные документы
+                var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(id);
+
+                // Создаем список всех документов (главный + связанные)
+                var allDocuments = new List<Core.Entities.Document> { document };
+                allDocuments.AddRange(relatedDocuments);
+
+                // Проверяем, сгенерированы ли все документы
+                if (allDocuments.Any(d => string.IsNullOrWhiteSpace(d.GeneratedFilePath)))
+                {
+                    TempData["WarningMessage"] = "Некоторые документы еще не сгенерированы. Необходимо сначала сгенерировать все документы.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                // Создаем ZIP-архив
+                using (var memoryStream = new MemoryStream())
+                {
+                    using (var archive = new System.IO.Compression.ZipArchive(memoryStream, System.IO.Compression.ZipArchiveMode.Create, true))
+                    {
+                        foreach (var doc in allDocuments)
+                        {
+                            if (!string.IsNullOrWhiteSpace(doc.GeneratedFilePath) && System.IO.File.Exists(doc.GeneratedFilePath))
+                            {
+                                // Получаем содержимое файла
+                                byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(doc.GeneratedFilePath);
+
+                                // Создаем безопасное имя файла
+                                string originalFileName = $"{doc.DocumentTemplate.Code}_{doc.FactoryNumber}";
+                                string transliteratedFileName = TransliterationHelper.Transliterate(originalFileName);
+                                string safeFileName = transliteratedFileName
+                                    .Replace(" ", "_")
+                                    .Replace(",", "_")
+                                    .Replace("\"", "_")
+                                    .Replace("'", "_")
+                                    .Replace(":", "_")
+                                    .Replace(";", "_")
+                                    .Replace("?", "_") + Path.GetExtension(doc.GeneratedFilePath);
+
+                                // Добавляем в архив
+                                var entry = archive.CreateEntry(safeFileName);
+                                using (var entryStream = entry.Open())
+                                {
+                                    await entryStream.WriteAsync(fileBytes, 0, fileBytes.Length);
+                                }
+                            }
+                        }
+                    }
+
+                    memoryStream.Position = 0;
+
+                    // Создаем имя архива
+                    string zipFileName = TransliterationHelper.Transliterate($"{document.DocumentTemplate.Code}_{document.FactoryNumber}_Пакет.zip")
+                        .Replace(" ", "_");
+
+                    _logger.LogInformation($"Создан архив {zipFileName} с {allDocuments.Count} документами");
+
+                    return File(memoryStream.ToArray(), "application/zip", zipFileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при создании пакета документов для ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка при создании пакета документов: {ex.Message}";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
 
         // GET: Documents/Delete/5
         public async Task<IActionResult> Delete(int id)
@@ -818,7 +938,44 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        
+        [HttpGet]
+        public async Task<IActionResult> GetRelatedDocuments(int id)
+        {
+            try
+            {
+                var document = await _documentService.GetDocumentByIdAsync(id);
+                if (document == null)
+                {
+                    return NotFound();
+                }
+
+                var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(id);
+
+                if (!relatedDocuments.Any())
+                {
+                    return PartialView("_NoRelatedDocuments");
+                }
+
+                var viewModels = relatedDocuments.Select(d => new DocumentViewModel
+                {
+                    Id = d.Id,
+                    TemplateId = d.DocumentTemplateId,
+                    TemplateCode = d.DocumentTemplate.Code,
+                    TemplateName = d.DocumentTemplate.Name,
+                    FactoryNumber = d.FactoryNumber,
+                    CreatedAt = d.CreatedAt,
+                    CreatedBy = d.CreatedBy,
+                    GeneratedFilePath = d.GeneratedFilePath
+                }).ToList();
+
+                return PartialView("_RelatedDocuments", viewModels);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при загрузке связанных документов для ID {id}");
+                return Content("<div class='alert alert-danger'>Ошибка при загрузке связанных документов</div>");
+            }
+        }
 
     }
 }

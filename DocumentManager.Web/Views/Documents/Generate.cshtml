@@ -1,11 +1,8 @@
-﻿
-@model DocumentManager.Web.Models.GenerateProgressViewModel
+﻿@model DocumentManager.Web.Models.GenerateProgressViewModel
 
 @{
     ViewData["Title"] = "Генерация документа";
 }
-
-
 
 <div class="card">
     <div class="card-header">
@@ -27,14 +24,17 @@
 
         <div id="success-container" class="alert alert-success d-none">
             <h5>Документ успешно сгенерирован</h5>
-            <p>Документ готов к скачиванию.</p>
+            <p id="success-message">Документ готов к скачиванию.</p>
         </div>
 
         <div class="text-center mt-4">
             <a id="download-btn" href="@Url.Action("Download", new { id = Model.DocumentId })" class="btn btn-primary btn-lg d-none">
                 <i class="bi bi-download"></i> Скачать документ
             </a>
-            <a id="back-btn" href="@Url.Action("Details", new { id = Model.DocumentId })" class="btn btn-secondary btn-lg">
+            <a id="download-all-btn" href="@Url.Action("DownloadAll", new { id = Model.DocumentId })" class="btn btn-success btn-lg d-none ms-2">
+                <i class="bi bi-file-earmark-zip"></i> Скачать пакетом
+            </a>
+            <a id="back-btn" href="@Url.Action("Details", new { id = Model.DocumentId })" class="btn btn-secondary btn-lg ms-2">
                 <i class="bi bi-arrow-left"></i> Вернуться к документу
             </a>
         </div>
@@ -53,6 +53,8 @@
                     return response.json();
                 })
                 .then(data => {
+                    console.log("Получены данные прогресса:", data);
+                    
                     // Обновляем прогресс-бар
                     const progressBar = document.getElementById('progress-bar');
                     progressBar.style.width = data.progress + '%';
@@ -78,9 +80,26 @@
                         document.getElementById('download-btn').classList.remove('d-none');
                         progressBar.classList.remove('progress-bar-animated');
 
+                        // Проверяем, содержит ли статус информацию о пакете документов
+                        if (data.status && data.status.includes('пакет')) {
+                            document.getElementById('success-message').textContent = 
+                                'Сгенерировано несколько документов. Вы можете скачать их по отдельности или пакетом.';
+                            document.getElementById('download-all-btn').classList.remove('d-none');
+                            console.log("Показываем кнопку пакетной загрузки");
+                        }
+
                         // Если есть URL для скачивания
                         if (data.result) {
-                            document.getElementById('download-btn').href = data.result;
+                            const downloadUrl = data.result.startsWith('/') ? data.result : '/' + data.result;
+                            document.getElementById('download-btn').href = downloadUrl;
+                            console.log("Установлен URL скачивания:", downloadUrl);
+
+                            // Обновляем URL для пакетной загрузки, если он содержит Download
+                            if (downloadUrl.includes('/Download/')) {
+                                const downloadAllUrl = downloadUrl.replace('/Download/', '/DownloadAll/');
+                                document.getElementById('download-all-btn').href = downloadAllUrl;
+                                console.log("Установлен URL пакетной загрузки:", downloadAllUrl);
+                            }
                         }
 
                         clearInterval(interval);
@@ -108,4 +127,3 @@
         updateProgress();
     </script>
 }
-

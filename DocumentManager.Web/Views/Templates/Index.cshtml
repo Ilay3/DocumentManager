@@ -31,7 +31,6 @@
 else
 {
     <!-- Поиск шаблонов -->
-    <!-- Улучшенный поиск шаблонов -->
     <div class="filter-panel mb-4">
         <div class="row g-3">
             <div class="col-md-12">
@@ -41,7 +40,10 @@ else
                     </span>
                     <input type="search" id="templateSearchInput" class="form-control border-start-0 shadow-none"
                            placeholder="Поиск по названию, коду или типу шаблона...">
-                    <!-- Кнопка очистки добавляется JavaScript-ом -->
+                    <button id="clearSearch" class="btn btn-link position-absolute end-0 top-0 text-secondary d-none"
+                            style="z-index: 5; padding: 0.375rem 0.75rem;">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
                 </div>
                 <div class="form-text text-muted small mt-1">
                     <i class="bi bi-info-circle"></i>
@@ -84,7 +86,7 @@ else
                 <p class="text-muted">Паспорта устройств с техническими характеристиками и информацией о настройках</p>
             </div>
 
-            <div class="row g-4">
+            <div class="row g-4 passport-templates">
                 @{
                     var passportTemplates = Model.Where(t => t.Type == "Passport").ToList();
                     if (!passportTemplates.Any())
@@ -142,6 +144,7 @@ else
                     }
                 }
             </div>
+            <div class="no-results-container"></div>
         </div>
 
         <!-- Упаковочные листы -->
@@ -151,7 +154,7 @@ else
                 <p class="text-muted">Упаковочные листы с перечнем комплектующих и аксессуаров</p>
             </div>
 
-            <div class="row g-4">
+            <div class="row g-4 packing-list-templates">
                 @{
                     var packingListTemplates = Model.Where(t => t.Type == "PackingList").ToList();
                     if (!packingListTemplates.Any())
@@ -209,6 +212,7 @@ else
                     }
                 }
             </div>
+            <div class="no-results-container"></div>
         </div>
 
         <!-- Упаковочная ведомость -->
@@ -218,7 +222,7 @@ else
                 <p class="text-muted">Сводные упаковочные ведомости для регистрации и учета поставок</p>
             </div>
 
-            <div class="row g-4">
+            <div class="row g-4 packing-inventory-templates">
                 @{
                     var packingInventoryTemplates = Model.Where(t => t.Type == "PackingInventory").ToList();
                     if (!packingInventoryTemplates.Any())
@@ -276,54 +280,58 @@ else
                     }
                 }
             </div>
+            <div class="no-results-container"></div>
         </div>
     </div>
 }
 
-    <style>
-        /* Стили для поля поиска */
-        #templateSearchInput {
-            transition: all 0.3s ease;
+<style>
+    /* Стили для поля поиска */
+    #templateSearchInput {
+        transition: all 0.3s ease;
+    }
+
+        #templateSearchInput:focus {
+            box-shadow: 0 0 0 0.2rem rgba(58, 123, 213, 0.15) !important;
         }
 
-            #templateSearchInput:focus {
-                box-shadow: 0 0 0 0.2rem rgba(58, 123, 213, 0.15) !important;
-            }
+    /* Анимация для результатов поиска */
+    .template-card {
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
 
-        /* Анимация для результатов поиска */
-        .template-card {
-            transition: transform 0.3s ease, opacity 0.3s ease;
+    /* Стили для кнопки очистки поиска */
+    #clearSearch {
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+        #clearSearch:hover {
+            opacity: 1;
         }
 
-        /* Стили для кнопки очистки поиска */
-        #clearSearch {
-            cursor: pointer;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
+    /* Подсветка найденного текста */
+    .highlight {
+        background-color: rgba(255, 230, 0, 0.3);
+        padding: 0 2px;
+        border-radius: 2px;
+    }
 
-            #clearSearch:hover {
-                opacity: 1;
-            }
+    /* Стили для сообщения об отсутствии результатов */
+    .no-results-message {
+        transition: opacity 0.3s ease;
+        opacity: 0.9;
+    }
 
-        /* Подсветка найденного текста */
-        .highlight {
-            background-color: rgba(255, 230, 0, 0.3);
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-
-        /* Стили для сообщения об отсутствии результатов */
-        .no-results-message {
-            transition: opacity 0.3s ease;
-            opacity: 0.9;
-        }
-
+    /* Стили для счетчиков в табах */
     .nav-link .badge {
-        font-weight: 600; /* Делаем цифры более жирными */
-        min-width: 20px; /* Минимальная ширина для лучшего отображения */
+        font-weight: 600;
+        min-width: 26px;
         display: inline-flex;
         justify-content: center;
+        align-items: center;
+        height: 20px;
     }
 
     /* Для неактивных вкладок - белый текст */
@@ -333,147 +341,147 @@ else
 
     /* Для активной вкладки - черный текст */
     .nav-link.active .badge {
-        color: black !important;
+        color: #3a7bd5 !important;
     }
-
-
-    </style>
+</style>
 
 @section Scripts {
     <script src="~/js/template-categories.js"></script>
     <script>
         $(document).ready(function () {
-            // Получаем ссылку на поле поиска
+            // Получаем ссылки на элементы
             const searchInput = $('#templateSearchInput');
-
-            // Получаем ссылки на все карточки шаблонов
-            const templateCards = $('.template-card');
-
-            // Получаем ссылки на вкладки
+            const clearSearchBtn = $('#clearSearch');
+            const allTemplateCards = $('.template-card');
             const tabPanes = $('.tab-pane');
+            const tabLinks = $('.nav-link[data-bs-toggle="tab"]');
 
-            // Обновляем счетчики при поиске
-            function updateCounters() {
-                // Для каждой вкладки обновляем счетчик
-                $('.nav-link[data-bs-toggle="tab"]').each(function () {
-                    const tabId = $(this).attr('data-bs-target');
-                    const visibleCards = $(tabId).find('.template-card:visible').length;
+            // Счетчики шаблонов
+            const passportsCount = $('#passports-count');
+            const packingListsCount = $('#packing-lists-count');
+            const packingInventoriesCount = $('#packing-inventories-count');
 
-                    // Находим или создаем бейдж с счетчиком
-                    let badge = $(this).find('.badge');
-                    if (badge.length === 0) {
-                        badge = $('<span class="ms-2 badge rounded-pill"></span>');
-                        $(this).append(badge);
-                    }
+            // Функция для подсчета всех шаблонов (как видимых, так и скрытых)
+            function countAllTemplates() {
+                // Подсчитываем все шаблоны в каждой категории
+                const passportCards = $('.passport-templates .template-card').length;
+                const packingListCards = $('.packing-list-templates .template-card').length;
+                const packingInventoryCards = $('.packing-inventory-templates .template-card').length;
 
-                    // Обновляем стиль и текст бейджа
-                    if ($(this).hasClass('active')) {
-                        badge.removeClass('bg-secondary').addClass('bg-white text-primary');
-                    } else {
-                        badge.removeClass('bg-white text-primary').addClass('bg-secondary');
-                    }
+                // Обновляем счетчики
+                passportsCount.text(passportCards);
+                packingListsCount.text(packingListCards);
+                packingInventoriesCount.text(packingInventoryCards);
 
-                    badge.text(visibleCards);
+                console.log("Всего шаблонов:", {
+                    passports: passportCards,
+                    packingLists: packingListCards,
+                    packingInventories: packingInventoryCards
                 });
             }
 
-            // Функция для фильтрации шаблонов
+            // Функция для подсчета видимых шаблонов (при фильтрации)
+            function countVisibleTemplates() {
+                // Подсчитываем видимые шаблоны в каждой категории
+                const visiblePassportCards = $('.passport-templates .template-card:visible').length;
+                const visiblePackingListCards = $('.packing-list-templates .template-card:visible').length;
+                const visiblePackingInventoryCards = $('.packing-inventory-templates .template-card:visible').length;
+
+                // Обновляем счетчики
+                passportsCount.text(visiblePassportCards);
+                packingListsCount.text(visiblePackingListCards);
+                packingInventoriesCount.text(visiblePackingInventoryCards);
+
+                console.log("Видимые шаблоны:", {
+                    passports: visiblePassportCards,
+                    packingLists: visiblePackingListCards,
+                    packingInventories: visiblePackingInventoryCards
+                });
+            }
+
+            // Функция для проверки наличия результатов поиска
+            function checkNoResults() {
+                tabPanes.each(function () {
+                    const pane = $(this);
+                    const noResultsContainer = pane.find('.no-results-container');
+                    const searchText = searchInput.val().trim();
+
+                    // Удаляем предыдущие сообщения
+                    noResultsContainer.empty();
+
+                    // Если есть поисковый запрос и нет видимых карточек
+                    if (searchText && pane.find('.template-card:visible').length === 0) {
+                        noResultsContainer.html(`
+                                    <div class="alert alert-info mt-3 no-results-message">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        По запросу "<strong>${searchText}</strong>" ничего не найдено
+                                    </div>
+                                `);
+                    }
+                });
+            }
+
+            // Функция фильтрации шаблонов
             function filterTemplates() {
                 const searchText = searchInput.val().toLowerCase().trim();
-                let visibleCount = 0;
 
-                if (searchText === '') {
-                    // Если поиск пуст, показываем все карточки
-                    templateCards.show();
-                    tabPanes.each(function () {
-                        $(this).find('.no-results-message').remove();
-                    });
-                    updateCounters();
+                // Управление кнопкой очистки
+                if (searchText) {
+                    clearSearchBtn.removeClass('d-none');
+                } else {
+                    clearSearchBtn.addClass('d-none');
+                }
+
+                // Если поиск пустой, показываем все карточки
+                if (!searchText) {
+                    allTemplateCards.show();
+                    tabPanes.find('.no-results-container').empty();
+                    countAllTemplates();
                     return;
                 }
 
-                // Проходим по всем карточкам и проверяем совпадение
-                templateCards.each(function () {
+                // Фильтрация карточек
+                allTemplateCards.each(function () {
                     const card = $(this);
-                    // Исправленные селекторы для соответствия вашей HTML-структуре
                     const templateName = card.find('.card-title').text().toLowerCase();
                     const templateCode = card.find('.text-muted.small').text().toLowerCase();
                     const templateType = card.find('.badge').first().text().toLowerCase();
 
-                    // Отладка - для проверки значений
-                    console.log('Карточка:', { name: templateName, code: templateCode, type: templateType });
-
-                    // Проверяем, содержит ли название, код или тип искомый текст
                     if (templateName.includes(searchText) ||
                         templateCode.includes(searchText) ||
                         templateType.includes(searchText)) {
                         card.show();
-                        visibleCount++;
                     } else {
                         card.hide();
                     }
                 });
 
-                // Проверяем наличие результатов в каждой вкладке
-                tabPanes.each(function () {
-                    const pane = $(this);
-                    const visibleCards = pane.find('.template-card:visible').length;
+                // Проверяем наличие результатов
+                checkNoResults();
 
-                    // Удаляем предыдущие сообщения об отсутствии результатов
-                    pane.find('.no-results-message').remove();
-
-                    // Если во вкладке нет видимых карточек, показываем сообщение
-                    if (visibleCards === 0) {
-                        const message = $('<div class="no-results-message alert alert-info mt-3">' +
-                            '<i class="bi bi-info-circle me-2"></i>' +
-                            'По запросу "<strong>' + searchText + '</strong>" ничего не найдено</div>');
-                        pane.append(message);
-                    }
-                });
-
-                // Обновляем счетчики на вкладках
-                updateCounters();
+                // Обновляем счетчики видимых шаблонов
+                countVisibleTemplates();
             }
 
-            // Обработчик события ввода в поле поиска
-            searchInput.on('input', function () {
+            // Обработка изменения вкладки
+            tabLinks.on('shown.bs.tab', function (e) {
+                // Обновляем стили для значков (белый/цветной фон)
+                tabLinks.find('.badge').removeClass('bg-white text-primary').addClass('bg-secondary');
+                $(this).find('.badge').removeClass('bg-secondary').addClass('bg-white text-primary');
+            });
+
+            // Обработчики событий поиска
+            searchInput.on('input', filterTemplates);
+            searchInput.on('search', filterTemplates);
+
+            // Очистка поиска
+            clearSearchBtn.on('click', function () {
+                searchInput.val('').focus();
                 filterTemplates();
             });
 
-            // Обработчик события очистки поля поиска (нажатие на X)
-            searchInput.on('search', function () {
-                filterTemplates();
-            });
-
-            // Обработчик изменения вкладок
-            $('.nav-link[data-bs-toggle="tab"]').on('shown.bs.tab', function () {
-                updateCounters();
-            });
-
-            // Добавляем кнопку очистки поиска
-            searchInput.parent().append('<button id="clearSearch" class="btn btn-link position-absolute end-0 top-0 text-secondary" ' +
-                'style="z-index: 5; padding: 0.375rem 0.75rem; display: none;">' +
-                '<i class="bi bi-x-circle"></i></button>');
-
-            // Обработчик для кнопки очистки
-            $('#clearSearch').on('click', function () {
-                searchInput.val('');
-                $(this).hide();
-                filterTemplates();
-                searchInput.focus();
-            });
-
-            // Показываем/скрываем кнопку очистки в зависимости от наличия текста
-            searchInput.on('input', function () {
-                if ($(this).val().length > 0) {
-                    $('#clearSearch').show();
-                } else {
-                    $('#clearSearch').hide();
-                }
-            });
-
-            // Начальная инициализация счетчиков
-            updateCounters();
+            // Инициализация при загрузке страницы
+            countAllTemplates();
         });
     </script>
 }
