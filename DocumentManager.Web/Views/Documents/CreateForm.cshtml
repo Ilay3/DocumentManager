@@ -4,8 +4,36 @@
     ViewData["Title"] = "Создание документа";
 }
 
+@if (Model.IsFactoryNumberDuplicate)
+{
+    <!-- Модальное окно для подтверждения дубликата -->
+    <div class="modal fade" id="duplicateNumberModal" tabindex="-1" role="dialog" aria-labelledby="duplicateNumberModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title" id="duplicateNumberModalLabel">
+                        <i class="bi bi-exclamation-triangle"></i> Дубликат заводского номера
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Заводской номер <strong>@Model.FactoryNumber</strong> уже существует.</p>
+                    <p>Вы уверены, что хотите создать документ с таким же заводским номером?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Изменить номер</button>
+                    <button type="submit" class="btn btn-warning" name="confirmDuplicate" value="true" form="documentForm">Да, создать дубликат</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрытое поле для подтверждения дубликата -->
+    <input type="hidden" id="confirmDuplicateInput" name="confirmDuplicate" value="false" />
+}
+
 <style>
-    /* Улучшения для формы создания документа */
     .form-card {
         border: none;
         border-radius: 12px;
@@ -88,6 +116,31 @@
             font-weight: 500;
             padding: 0.5rem 1.5rem;
         }
+
+    /* Улучшенный стиль для полей с ошибками */
+    .form-field-container.has-error .form-floating {
+        position: relative;
+        border-left: 3px solid #dc3545;
+        padding-left: 0.5rem;
+    }
+
+    .is-invalid {
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+    }
+
+    .invalid-feedback {
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    /* Стили для модального окна */
+    #duplicateNumberModal .modal-body {
+        font-size: 1.1rem;
+    }
+
+        #duplicateNumberModal .modal-body strong {
+            color: #dc3545;
+        }
 </style>
 
 <div class="row mb-4">
@@ -144,7 +197,7 @@
                                 @foreach (var field in primaryFields)
                                 {
                                     <div class="col-md-6">
-                                        <div class="form-field-container" title="@field.FieldLabel">
+                                        <div class="form-field-container @(ViewData.ModelState[field.FieldName]?.Errors.Count > 0 ? "has-error" : "")" title="@field.FieldLabel">
                                             <div class="form-floating">
                                                 @{
                                                     bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
@@ -179,13 +232,16 @@
                                                            placeholder="@field.FieldLabel" />
                                                 }
 
-                                                <label for="@field.FieldName">
+                                                <label for="@field.FieldName" class="@(hasError ? "text-danger" : "")">
                                                     @field.FieldLabel @(field.IsRequired ? "*" : "")
                                                 </label>
 
                                                 @if (hasError)
                                                 {
                                                     <div class="invalid-feedback">
+                                                        @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                    </div>
+                                                    <div class="alert alert-danger mt-2">
                                                         @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
                                                     </div>
                                                 }
@@ -210,7 +266,7 @@
                                 @foreach (var field in dateFields)
                                 {
                                     <div class="col-md-6">
-                                        <div class="form-field-container" title="@field.FieldLabel">
+                                        <div class="form-field-container @(ViewData.ModelState[field.FieldName]?.Errors.Count > 0 ? "has-error" : "")" title="@field.FieldLabel">
                                             <div class="form-floating">
                                                 @{
                                                     bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
@@ -225,13 +281,16 @@
                                                        required="@field.IsRequired"
                                                        placeholder="@field.FieldLabel" />
 
-                                                <label for="@field.FieldName">
+                                                <label for="@field.FieldName" class="@(hasError ? "text-danger" : "")">
                                                     @field.FieldLabel @(field.IsRequired ? "*" : "")
                                                 </label>
 
                                                 @if (hasError)
                                                 {
                                                     <div class="invalid-feedback">
+                                                        @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                    </div>
+                                                    <div class="alert alert-danger mt-2">
                                                         @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
                                                     </div>
                                                 }
@@ -251,7 +310,7 @@
                                 @foreach (var field in otherFields)
                                 {
                                     <div class="col-md-6">
-                                        <div class="form-field-container" title="@field.FieldLabel">
+                                        <div class="form-field-container @(ViewData.ModelState[field.FieldName]?.Errors.Count > 0 ? "has-error" : "")" title="@field.FieldLabel">
                                             <div class="form-floating">
                                                 @{
                                                     bool hasError = ViewData.ModelState[field.FieldName]?.Errors.Count > 0;
@@ -286,13 +345,16 @@
                                                            placeholder="@field.FieldLabel" />
                                                 }
 
-                                                <label for="@field.FieldName">
+                                                <label for="@field.FieldName" class="@(hasError ? "text-danger" : "")">
                                                     @field.FieldLabel @(field.IsRequired ? "*" : "")
                                                 </label>
 
                                                 @if (hasError)
                                                 {
                                                     <div class="invalid-feedback">
+                                                        @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
+                                                    </div>
+                                                    <div class="alert alert-danger mt-2">
                                                         @ViewData.ModelState[field.FieldName].Errors.First().ErrorMessage
                                                     </div>
                                                 }
@@ -356,14 +418,14 @@
         </div>
 
 
-    <div class="action-buttons">
-        <button type="submit" class="btn btn-primary btn-lg">
-            <i class="bi bi-save me-1"></i> Создать документ
-        </button>
-        <a href="@Url.Action("Create", "Documents")" class="btn btn-outline-secondary btn-lg ms-2">
-            <i class="bi bi-x"></i> Отмена
-        </a>
-    </div>
+        <div class="action-buttons">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-save me-1"></i> Создать документ
+            </button>
+            <a href="@Url.Action("Create", "Documents")" class="btn btn-outline-secondary btn-lg ms-2">
+                <i class="bi bi-x"></i> Отмена
+            </a>
+        </div>
 </form>
 
 @section Scripts {
@@ -382,6 +444,31 @@
             $('.form-field-container').tooltip({
                 trigger: 'hover'
             });
+
+            // Отладочная информация
+            console.log("Страница загружена, проверка модального окна и обработчиков");
+
+            // Показываем модальное окно, если есть дубликат заводского номера
+        @if (Model.IsFactoryNumberDuplicate)
+        {
+            <text>
+                        console.log("Показываем модальное окно дубликата");
+                        var duplicateModal = new bootstrap.Modal(document.getElementById('duplicateNumberModal'));
+                        duplicateModal.show();
+            </text>
+        }
+
+                // Обработка подтверждения создания дубликата
+                $('#confirmDuplicate').on('click', function () {
+                    console.log("Нажата кнопка подтверждения дубликата");
+
+                    // Устанавливаем значение скрытого поля
+                    $('#confirmDuplicateInput').val('true');
+                    console.log("Установлено значение confirmDuplicate = " + $('#confirmDuplicateInput').val());
+
+                    // Отправляем форму
+                    $('#documentForm').submit();
+                });
         });
     </script>
 }

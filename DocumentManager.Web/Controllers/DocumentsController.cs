@@ -267,6 +267,7 @@ namespace DocumentManager.Web.Controllers
                     TemplateId = template.Id,
                     TemplateCode = template.Code,
                     TemplateName = template.Name,
+                    IsFactoryNumberDuplicate = false, // Добавляем свойство для модального окна
                     Fields = fields.Select(f => new DocumentFieldViewModel
                     {
                         Id = f.Id,
@@ -311,7 +312,7 @@ namespace DocumentManager.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateForm(int templateId, Dictionary<string, string> fieldValues, List<int> selectedRelatedTemplateIds)
+        public async Task<IActionResult> CreateForm(int templateId, Dictionary<string, string> fieldValues, List<int> selectedRelatedTemplateIds, bool confirmDuplicate = false)
         {
             try
             {
@@ -338,14 +339,17 @@ namespace DocumentManager.Web.Controllers
 
                 // Проверяем уникальность заводского номера
                 string factoryNumber = null;
+                bool isFactoryNumberDuplicate = false;
+                
                 if (fieldValues.TryGetValue("FactoryNumber", out factoryNumber))
                 {
                     var isUnique = await _documentService.IsFactoryNumberUniqueAsync(templateId, factoryNumber);
 
-                    if (!isUnique)
+                    if (!isUnique && !confirmDuplicate)
                     {
-                        ModelState.AddModelError("FactoryNumber", "Заводской номер уже существует");
-                        hasValidationErrors = true;
+                        isFactoryNumberDuplicate = true;
+                        // Если пользователь еще не подтвердил создание дубликата, показываем модальное окно
+                        // Не добавляем ошибку в ModelState, чтобы форма не показывала стандартное сообщение об ошибке
                     }
                 }
                 else
@@ -354,7 +358,7 @@ namespace DocumentManager.Web.Controllers
                     hasValidationErrors = true;
                 }
 
-                if (!ModelState.IsValid || hasValidationErrors)
+                if (!ModelState.IsValid || (hasValidationErrors || (isFactoryNumberDuplicate && !confirmDuplicate)))
                 {
                     _logger.LogWarning("Ошибки валидации при создании документа");
 
@@ -363,6 +367,8 @@ namespace DocumentManager.Web.Controllers
                         TemplateId = template.Id,
                         TemplateCode = template.Code,
                         TemplateName = template.Name,
+                        IsFactoryNumberDuplicate = isFactoryNumberDuplicate,
+                        FactoryNumber = factoryNumber,
                         Fields = fields.Select(f => new DocumentFieldViewModel
                         {
                             Id = f.Id,
@@ -377,11 +383,11 @@ namespace DocumentManager.Web.Controllers
                         SelectedRelatedTemplateIds = selectedRelatedTemplateIds
                     };
 
-                    // Получаем связанные шаблоны (включая неактивные)
+                    // Получаем связанные шаблоны
                     var relatedTemplates = (await _templateService.GetAllTemplatesAsync(includeInactive: true))
                         .Where(t => t.Id != templateId &&
-                               (t.Type == "PackingList" || t.Type == "PackingInventory") &&
-                               t.IsActive) 
+                              (t.Type == "PackingList" || t.Type == "PackingInventory") &&
+                              t.IsActive) 
                         .Select(t => new DocumentTemplateViewModel
                         {
                             Id = t.Id,
@@ -408,8 +414,32 @@ namespace DocumentManager.Web.Controllers
                     CreatedBy = createdBy
                 };
 
-                _logger.LogInformation($"Создание документа для шаблона {templateId} с заводским номером {factoryNumber}");
-                await _documentService.CreateDocumentAsync(document, fieldValues);
+                _logger.LogInformation($"Создание документа для шаблона {templateId} с заводским номером {factoryNumber}. Дубликат: {confirmDuplicate}");
+                
+                // Создаем документ, игнорируя ограничение уникальности если подтверждено создание дубликата
+                Document createdDocument;
+                try 
+                {
+                    // Пытаемся создать документ обычным способом
+                    createdDocument = await _documentService.CreateDocumentAsync(document, fieldValues);
+                }
+                catch (Exception ex) when (confirmDuplicate && ex.ToString().Contains("IX_Documents_DocumentTemplateId_FactoryNumber"))
+                {
+                    // Если возникла ошибка уникальности и пользователь согласен создать дубликат,
+                    // используем специальный обходной путь
+                    _logger.LogWarning($"Создание дубликата с заводским номером {factoryNumber} для шаблона {templateId}");
+                    
+                    // Делаем временную модификацию заводского номера для обхода ограничения уникальности
+                    var tempFactoryNumber = $"{factoryNumber}_temp_{Guid.NewGuid().ToString().Substring(0, 8)}";
+                    document.FactoryNumber = tempFactoryNumber;
+                    
+                    // Создаем документ с временным номером
+                    createdDocument = await _documentService.CreateDocumentAsync(document, fieldValues);
+                    
+                    // Затем обновляем на оригинальный номер (потребуется расширение интерфейса сервиса)
+                    fieldValues["FactoryNumber"] = factoryNumber;
+                    await _documentService.UpdateDocumentAsync(createdDocument, fieldValues);
+                }
 
                 // Создаем связанные документы (упаковочные листы)
                 List<int> createdRelatedDocumentIds = new List<int>();
@@ -443,16 +473,34 @@ namespace DocumentManager.Web.Controllers
                         };
 
                         _logger.LogInformation($"Создание связанного документа для шаблона {relatedTemplateId}");
-                        await _documentService.CreateDocumentAsync(relatedDocument, relatedFieldValues);
-                        createdRelatedDocumentIds.Add(relatedDocument.Id);
+                        
+                        // Создаем связанный документ, учитывая возможный дубликат
+                        Document createdRelatedDocument;
+                        try 
+                        {
+                            createdRelatedDocument = await _documentService.CreateDocumentAsync(relatedDocument, relatedFieldValues);
+                        }
+                        catch (Exception ex) when (confirmDuplicate && ex.ToString().Contains("IX_Documents_DocumentTemplateId_FactoryNumber"))
+                        {
+                            // Используем такой же подход для обхода ограничения уникальности
+                            var tempFactoryNumber = $"{factoryNumber}_temp_{Guid.NewGuid().ToString().Substring(0, 8)}";
+                            relatedDocument.FactoryNumber = tempFactoryNumber;
+                            
+                            createdRelatedDocument = await _documentService.CreateDocumentAsync(relatedDocument, relatedFieldValues);
+                            
+                            relatedFieldValues["FactoryNumber"] = factoryNumber;
+                            await _documentService.UpdateDocumentAsync(createdRelatedDocument, relatedFieldValues);
+                        }
+                        
+                        createdRelatedDocumentIds.Add(createdRelatedDocument.Id);
 
                         // Связываем документы
-                        await _documentService.RelateDocumentsAsync(document.Id, relatedDocument.Id);
+                        await _documentService.RelateDocumentsAsync(createdDocument.Id, createdRelatedDocument.Id);
                     }
                 }
 
                 // Генерируем первый документ асинхронно
-                return RedirectToAction(nameof(GenerateAsync), new { id = document.Id });
+                return RedirectToAction(nameof(GenerateAsync), new { id = createdDocument.Id });
             }
             catch (Exception ex)
             {
@@ -461,6 +509,7 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Create));
             }
         }
+        
         public async Task<IActionResult> Details(int id)
         {
             try
@@ -553,7 +602,6 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
-
 
         // Обновите метод GenerateDocument в DocumentsController.cs
         private async Task GenerateDocument(int documentId, string operationId)
@@ -659,18 +707,18 @@ namespace DocumentManager.Web.Controllers
         public static class TransliterationHelper
         {
             private static readonly Dictionary<char, string> transliterationMap = new Dictionary<char, string>
-        {
-            {'а', "a"}, {'б', "b"}, {'в', "v"}, {'г', "g"}, {'д', "d"}, {'е', "e"}, {'ё', "yo"},
-            {'ж', "zh"}, {'з', "z"}, {'и', "i"}, {'й', "y"}, {'к', "k"}, {'л', "l"}, {'м', "m"},
-            {'н', "n"}, {'о', "o"}, {'п', "p"}, {'р', "r"}, {'с', "s"}, {'т', "t"}, {'у', "u"},
-            {'ф', "f"}, {'х', "kh"}, {'ц', "ts"}, {'ч', "ch"}, {'ш', "sh"}, {'щ', "sch"}, {'ъ', ""},
-            {'ы', "y"}, {'ь', ""}, {'э', "e"}, {'ю', "yu"}, {'я', "ya"},
-            {'А', "A"}, {'Б', "B"}, {'В', "V"}, {'Г', "G"}, {'Д', "D"}, {'Е', "E"}, {'Ё', "Yo"},
-            {'Ж', "Zh"}, {'З', "Z"}, {'И', "I"}, {'Й', "Y"}, {'К', "K"}, {'Л', "L"}, {'М', "M"},
-            {'Н', "N"}, {'О', "O"}, {'П', "P"}, {'Р', "R"}, {'С', "S"}, {'Т', "T"}, {'У', "U"},
-            {'Ф', "F"}, {'Х', "Kh"}, {'Ц', "Ts"}, {'Ч', "Ch"}, {'Ш', "Sh"}, {'Щ', "Sch"}, {'Ъ', ""},
-            {'Ы', "Y"}, {'Ь', ""}, {'Э', "E"}, {'Ю', "Yu"}, {'Я', "Ya"}
-        };
+            {
+                {'а', "a"}, {'б', "b"}, {'в', "v"}, {'г', "g"}, {'д', "d"}, {'е', "e"}, {'ё', "yo"},
+                {'ж', "zh"}, {'з', "z"}, {'и', "i"}, {'й', "y"}, {'к', "k"}, {'л', "l"}, {'м', "m"},
+                {'н', "n"}, {'о', "o"}, {'п', "p"}, {'р', "r"}, {'с', "s"}, {'т', "t"}, {'у', "u"},
+                {'ф', "f"}, {'х', "kh"}, {'ц', "ts"}, {'ч', "ch"}, {'ш', "sh"}, {'щ', "sch"}, {'ъ', ""},
+                {'ы', "y"}, {'ь', ""}, {'э', "e"}, {'ю', "yu"}, {'я', "ya"},
+                {'А', "A"}, {'Б', "B"}, {'В', "V"}, {'Г', "G"}, {'Д', "D"}, {'Е', "E"}, {'Ё', "Yo"},
+                {'Ж', "Zh"}, {'З', "Z"}, {'И', "I"}, {'Й', "Y"}, {'К', "K"}, {'Л', "L"}, {'М', "M"},
+                {'Н', "N"}, {'О', "O"}, {'П', "P"}, {'Р', "R"}, {'С', "S"}, {'Т', "T"}, {'У', "U"},
+                {'Ф', "F"}, {'Х', "Kh"}, {'Ц', "Ts"}, {'Ч', "Ch"}, {'Ш', "Sh"}, {'Щ', "Sch"}, {'Ъ', ""},
+                {'Ы', "Y"}, {'Ь', ""}, {'Э', "E"}, {'Ю', "Yu"}, {'Я', "Ya"}
+            };
 
             /// <summary>
             /// Транслитерирует строку с русского на английский
@@ -705,8 +753,6 @@ namespace DocumentManager.Web.Controllers
                 return result.ToString();
             }
         }
-
-
 
         [HttpGet]
         [Route("Documents/Download/{id}")]
@@ -976,6 +1022,5 @@ namespace DocumentManager.Web.Controllers
                 return Content("<div class='alert alert-danger'>Ошибка при загрузке связанных документов</div>");
             }
         }
-
     }
 }
