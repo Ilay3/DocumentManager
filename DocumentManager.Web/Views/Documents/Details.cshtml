@@ -97,7 +97,15 @@
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <div class="form-label text-muted">Заводской номер</div>
-                            <div class="fs-5">@Model.FactoryNumber</div>
+                            <div class="fs-5">
+                                @Model.FactoryNumber
+                                @if (Model.FactoryNumber.Contains("(Дубликат"))
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">
+                                        <i class="bi bi-files"></i> Дубликат
+                                    </span>
+                                }
+                            </div>
                         </div>
                         <div class="col-md-4 mb-3">
                             <div class="form-label text-muted">Код шаблона</div>

@@ -160,6 +160,12 @@ else
                         </div>
                         <div class="document-number">
                             @document.FactoryNumber
+                            @if (document.FactoryNumber.Contains("(Дубликат"))
+                            {
+                                <span class="badge bg-warning text-dark ms-1">
+                                    <i class="bi bi-files"></i> Дубликат
+                                </span>
+                            }
                         </div>
                         <div class="document-date mt-2">
                             <i class="bi bi-calendar3"></i> @document.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
@@ -244,7 +250,15 @@ else
                         {
                             <tr class="doc-item @(document.IsMainDocument ? "main-document" : "")">
                                 <td>
-                                    <div class="fw-semibold">@document.FactoryNumber</div>
+                                    <div class="fw-semibold">
+                                        @document.FactoryNumber
+                                        @if (document.FactoryNumber.Contains("(Дубликат"))
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">
+                                                <i class="bi bi-files"></i> Дубликат
+                                            </span>
+                                        }
+                                    </div>
                                     @if (document.HasRelatedDocuments)
                                     {
                                         <span class="badge bg-info related-document-badge"

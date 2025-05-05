@@ -340,7 +340,7 @@ namespace DocumentManager.Web.Controllers
                 // Проверяем уникальность заводского номера
                 string factoryNumber = null;
                 bool isFactoryNumberDuplicate = false;
-                
+
                 if (fieldValues.TryGetValue("FactoryNumber", out factoryNumber))
                 {
                     var isUnique = await _documentService.IsFactoryNumberUniqueAsync(templateId, factoryNumber);
@@ -387,7 +387,7 @@ namespace DocumentManager.Web.Controllers
                     var relatedTemplates = (await _templateService.GetAllTemplatesAsync(includeInactive: true))
                         .Where(t => t.Id != templateId &&
                               (t.Type == "PackingList" || t.Type == "PackingInventory") &&
-                              t.IsActive) 
+                              t.IsActive)
                         .Select(t => new DocumentTemplateViewModel
                         {
                             Id = t.Id,
@@ -415,10 +415,10 @@ namespace DocumentManager.Web.Controllers
                 };
 
                 _logger.LogInformation($"Создание документа для шаблона {templateId} с заводским номером {factoryNumber}. Дубликат: {confirmDuplicate}");
-                
+
                 // Создаем документ, игнорируя ограничение уникальности если подтверждено создание дубликата
                 Document createdDocument;
-                try 
+                try
                 {
                     // Пытаемся создать документ обычным способом
                     createdDocument = await _documentService.CreateDocumentAsync(document, fieldValues);
@@ -426,18 +426,19 @@ namespace DocumentManager.Web.Controllers
                 catch (Exception ex) when (confirmDuplicate && ex.ToString().Contains("IX_Documents_DocumentTemplateId_FactoryNumber"))
                 {
                     // Если возникла ошибка уникальности и пользователь согласен создать дубликат,
-                    // используем специальный обходной путь
+                    // используем специальный формат заводского номера с пометкой дубликата
                     _logger.LogWarning($"Создание дубликата с заводским номером {factoryNumber} для шаблона {templateId}");
-                    
-                    // Делаем временную модификацию заводского номера для обхода ограничения уникальности
-                    var tempFactoryNumber = $"{factoryNumber}_temp_{Guid.NewGuid().ToString().Substring(0, 8)}";
-                    document.FactoryNumber = tempFactoryNumber;
-                    
-                    // Создаем документ с временным номером
+
+                    // Формируем понятное название для дубликата с меткой времени
+                    var duplicateFactoryNumber = $"{factoryNumber} (Дубликат {DateTime.Now:dd.MM.yyyy HH:mm})";
+                    document.FactoryNumber = duplicateFactoryNumber;
+
+                    // Создаем документ с модифицированным номером
                     createdDocument = await _documentService.CreateDocumentAsync(document, fieldValues);
-                    
-                    // Затем обновляем на оригинальный номер (потребуется расширение интерфейса сервиса)
-                    fieldValues["FactoryNumber"] = factoryNumber;
+
+                    // Сохраняем оригинальный номер в значениях полей для отображения
+                    fieldValues["OriginalFactoryNumber"] = factoryNumber;
+                    fieldValues["FactoryNumber"] = duplicateFactoryNumber;
                     await _documentService.UpdateDocumentAsync(createdDocument, fieldValues);
                 }
 
@@ -473,25 +474,32 @@ namespace DocumentManager.Web.Controllers
                         };
 
                         _logger.LogInformation($"Создание связанного документа для шаблона {relatedTemplateId}");
-                        
+
                         // Создаем связанный документ, учитывая возможный дубликат
                         Document createdRelatedDocument;
-                        try 
+                        try
                         {
                             createdRelatedDocument = await _documentService.CreateDocumentAsync(relatedDocument, relatedFieldValues);
                         }
                         catch (Exception ex) when (confirmDuplicate && ex.ToString().Contains("IX_Documents_DocumentTemplateId_FactoryNumber"))
                         {
-                            // Используем такой же подход для обхода ограничения уникальности
-                            var tempFactoryNumber = $"{factoryNumber}_temp_{Guid.NewGuid().ToString().Substring(0, 8)}";
-                            relatedDocument.FactoryNumber = tempFactoryNumber;
-                            
+                            // Если возникла ошибка уникальности и пользователь согласен создать дубликат,
+                            // используем специальный формат заводского номера с пометкой дубликата
+                            _logger.LogWarning($"Создание дубликата связанного документа с заводским номером {factoryNumber} для шаблона {relatedTemplateId}");
+
+                            // Формируем понятное название для дубликата с меткой времени
+                            var duplicateFactoryNumber = $"{factoryNumber} (Дубликат {DateTime.Now:dd.MM.yyyy HH:mm})";
+                            relatedDocument.FactoryNumber = duplicateFactoryNumber;
+
+                            // Создаем документ с модифицированным номером
                             createdRelatedDocument = await _documentService.CreateDocumentAsync(relatedDocument, relatedFieldValues);
-                            
-                            relatedFieldValues["FactoryNumber"] = factoryNumber;
+
+                            // Сохраняем оригинальный номер в значениях полей для отображения
+                            relatedFieldValues["OriginalFactoryNumber"] = factoryNumber;
+                            relatedFieldValues["FactoryNumber"] = duplicateFactoryNumber;
                             await _documentService.UpdateDocumentAsync(createdRelatedDocument, relatedFieldValues);
                         }
-                        
+
                         createdRelatedDocumentIds.Add(createdRelatedDocument.Id);
 
                         // Связываем документы
@@ -509,7 +517,7 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Create));
             }
         }
-        
+
         public async Task<IActionResult> Details(int id)
         {
             try

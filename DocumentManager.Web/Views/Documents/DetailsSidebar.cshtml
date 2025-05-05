@@ -93,7 +93,15 @@
     <!-- Document header with status badge -->
     <div class="document-header">
         <h5 class="d-flex align-items-center">
-            <span class="me-2">@Model.FactoryNumber</span>
+            <span class="me-2">
+                @Model.FactoryNumber
+                @if (Model.FactoryNumber.Contains("(Дубликат"))
+                {
+                    <span class="badge bg-warning text-dark ms-1">
+                        <i class="bi bi-files"></i> Дубликат
+                    </span>
+                }
+            </span>
             @if (!string.IsNullOrWhiteSpace(Model.GeneratedFilePath))
             {
                 <span class="badge bg-success ms-auto"><i class="bi bi-check-circle"></i> Сгенерирован</span>
