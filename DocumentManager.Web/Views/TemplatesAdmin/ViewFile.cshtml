@@ -1,11 +1,11 @@
 ﻿@model DocumentManager.Web.Models.FileViewModel
 
 @{
-    ViewData["Title"] = "Просмотр файла";
+    ViewData["Title"] = "Редактирование файла";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Просмотр файла: @Model.FileName</h1>
+    <h1>Редактирование файла: @Model.FileName</h1>
     <div>
         <a asp-action="Files" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Назад к файлам
@@ -32,14 +32,27 @@
                 <input type="hidden" name="path" value="@Model.FilePath" />
 
                 <div class="form-group mb-3">
-                    <textarea name="content" id="content" class="form-control font-monospace" style="height: 500px;">@Model.Content</textarea>
+                    <div id="jsonEditor" style="height: 500px; width: 100%;"></div>
+                    <textarea name="content" id="jsonContent" class="d-none">@Model.Content</textarea>
                 </div>
 
-                <div class="form-group text-end">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save"></i> Сохранить изменения
-                    </button>
+                <div class="form-group d-flex justify-content-between">
+                    <div>
+                        <button type="button" id="formatJsonBtn" class="btn btn-outline-secondary">
+                            <i class="bi bi-code"></i> Форматировать JSON
+                        </button>
+                        <button type="button" id="validateJsonBtn" class="btn btn-outline-primary ms-2">
+                            <i class="bi bi-check-circle"></i> Проверить JSON
+                        </button>
+                    </div>
+                    <div>
+                        <button type="submit" id="saveJsonBtn" class="btn btn-success">
+                            <i class="bi bi-save"></i> Сохранить изменения
+                        </button>
+                    </div>
                 </div>
+
+                <div id="validationResult" class="mt-3"></div>
             </form>
         }
         else
@@ -52,17 +65,87 @@
 @section Scripts {
     @if (Model.FileType == "json")
     {
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/editor/editor.main.min.css" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/loader.min.js"></script>
         <script>
-            // Автоматическая подсветка синтаксиса JSON
-            document.addEventListener('DOMContentLoaded', function() {
-                const contentElement = document.getElementById('content');
-                try {
-                    // Пытаемся форматировать JSON
-                    const jsonObj = JSON.parse(contentElement.value);
-                    contentElement.value = JSON.stringify(jsonObj, null, 2);
-                } catch (e) {
-                    // Если не получилось, оставляем как есть
-                    console.warn('Не удалось форматировать JSON:', e);
+            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs' } });
+            require(['vs/editor/editor.main'], function () {
+                // Создаем редактор
+                var editor = monaco.editor.create(document.getElementById('jsonEditor'), {
+                    value: document.getElementById('jsonContent').value,
+                    language: 'json',
+                    theme: 'vs-light',
+                    automaticLayout: true,
+                    minimap: { enabled: true },
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    roundedSelection: true,
+                    autoIndent: 'full'
+                });
+
+                // Синхронизируем содержимое редактора с скрытым полем при отправке формы
+                document.getElementById('saveJsonBtn').addEventListener('click', function () {
+                    document.getElementById('jsonContent').value = editor.getValue();
+                });
+
+                // Форматирование JSON
+                document.getElementById('formatJsonBtn').addEventListener('click', function () {
+                    try {
+                        const jsonObj = JSON.parse(editor.getValue());
+                        const formatted = JSON.stringify(jsonObj, null, 4);
+                        editor.setValue(formatted);
+                        showValidationResult('JSON успешно отформатирован', 'success');
+                    } catch (e) {
+                        showValidationResult('Ошибка форматирования: ' + e.message, 'danger');
+                    }
+                });
+
+                // Валидация JSON
+                document.getElementById('validateJsonBtn').addEventListener('click', function () {
+                    try {
+                        const jsonObj = JSON.parse(editor.getValue());
+
+                        // Проверка наличия обязательных полей для шаблона
+                        let errors = [];
+
+                        if (!jsonObj.id) errors.push('Отсутствует обязательное поле "id"');
+                        if (!jsonObj.name) errors.push('Отсутствует обязательное поле "name"');
+                        if (!jsonObj.templatePath) errors.push('Отсутствует обязательное поле "templatePath"');
+
+                        if (!jsonObj.fields || !Array.isArray(jsonObj.fields) || jsonObj.fields.length === 0) {
+                            errors.push('Отсутствует массив полей "fields" или массив пуст');
+                        } else {
+                            // Проверка полей
+                            jsonObj.fields.forEach((field, index) => {
+                                if (!field.fieldName)
+                                    errors.push(`Поле #${index + 1}: отсутствует обязательное свойство "fieldName"`);
+                                if (!field.fieldLabel)
+                                    errors.push(`Поле "${field.fieldName || '#' + (index + 1)}": отсутствует обязательное свойство "fieldLabel"`);
+                                if (!field.fieldType)
+                                    errors.push(`Поле "${field.fieldName || '#' + (index + 1)}": отсутствует обязательное свойство "fieldType"`);
+                            });
+                        }
+
+                        if (errors.length === 0) {
+                            showValidationResult('JSON валиден и содержит все необходимые поля', 'success');
+                        } else {
+                            showValidationResult('Найдены ошибки: <ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>', 'warning');
+                        }
+                    } catch (e) {
+                        showValidationResult('Ошибка валидации JSON: ' + e.message, 'danger');
+                    }
+                });
+
+                function showValidationResult(message, type) {
+                    const resultEl = document.getElementById('validationResult');
+                    resultEl.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+
+                    // Автоматически скрыть сообщение через 5 секунд
+                    if (type === 'success') {
+                        setTimeout(() => {
+                            resultEl.innerHTML = '';
+                        }, 5000);
+                    }
                 }
             });
         </script>

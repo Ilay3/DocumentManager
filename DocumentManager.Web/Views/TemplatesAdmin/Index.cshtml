@@ -133,15 +133,16 @@
                                         <a asp-controller="Templates" asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-info-circle"></i>
                                         </a>
+                                        <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@template.JsonSchemaPath" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-code-slash"></i>
+                                        </a>
                                         @if (!template.IsActive)
                                         {
                                             <button class="btn btn-sm btn-outline-success" onclick="activateTemplate(@template.Id)">
                                                 <i class="bi bi-check-circle"></i>
                                             </button>
                                         }
-                                        <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@template.JsonSchemaPath" class="btn btn-sm btn-outline-secondary">
-                                            <i class="bi bi-code-slash"></i>
-                                        </a>
+                                        
                                     </div>
                                 </td>
                             </tr>

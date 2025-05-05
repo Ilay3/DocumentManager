@@ -19,23 +19,28 @@ namespace DocumentManager.Web.Controllers
         private readonly string _jsonBasePath;
         private readonly string _templatesBasePath;
         private readonly IWebHostEnvironment _environment;
+        private readonly IDocumentGenerationService _documentGenerationService;
 
         public TemplatesAdminController(
             ITemplateService templateService,
             TemplateManagerService templateManagerService,
             ILogger<TemplatesAdminController> logger,
             IConfiguration configuration,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            IDocumentGenerationService documentGenerationService)
         {
             _templateService = templateService;
             _templateManagerService = templateManagerService;
             _logger = logger;
             _environment = environment;
+            _documentGenerationService = documentGenerationService;
 
             // Получаем пути к директориям из конфигурации
             _jsonBasePath = Path.Combine(_environment.WebRootPath, configuration["JsonBasePath"] ?? "Templates/Json");
             _templatesBasePath = Path.Combine(_environment.WebRootPath, configuration["TemplatesBasePath"] ?? "Templates/Word");
         }
+
+
 
         // GET: TemplatesAdmin
         public async Task<IActionResult> Index(string filter = null)
@@ -504,6 +509,6 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-
+        
     }
 }
