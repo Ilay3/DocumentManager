@@ -1,15 +1,11 @@
-﻿// DocumentManager.Web/Helpers/DocumentRelationHelper.cs
-using DocumentManager.Core.Entities;
+﻿using DocumentManager.Core.Entities;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace DocumentManager.Web.Helpers
 {
-    /// <summary>
-    /// Вспомогательный класс для определения связей между документами
-    /// </summary>
     public static class DocumentRelationHelper
     {
         /// <summary>
@@ -22,199 +18,85 @@ namespace DocumentManager.Web.Helpers
             if (template == null || allTemplates == null)
                 return Enumerable.Empty<DocumentTemplate>();
 
-            // Получаем очищенный код (без текста после пробела и без скобок)
-            string cleanCode = CleanupCode(template.Code);
+            // Получаем базовую папку комплекта (например "ЭСУВТ.01-06-00 (Депо)")
+            string kitFolder = GetKitFolder(template.WordTemplatePath);
+            if (string.IsNullOrEmpty(kitFolder))
+                return Enumerable.Empty<DocumentTemplate>();
 
-            if (template.Type == "Passport")
-            {
-                // Для паспорта ищем упаковочные листы, в которых есть ссылка на него
-                var result = allTemplates.Where(t =>
-                    t.Id != template.Id &&
-                    t.IsActive &&
-                    (t.Type == "PackingList" || t.Type == "PackingInventory") &&
-                    IsPackingListRelatedToPassport(t, cleanCode));
+            // Определяем типы документов, которые могут быть связаны
+            var allowedTypes = template.Type == "Passport"
+                ? new[] { "PackingList", "PackingInventory" }
+                : new[] { "Passport", "PackingList", "PackingInventory" };
 
-                return result;
-            }
-            else if (template.Type == "PackingList")
-            {
-                // Для упаковочного листа находим связанный код паспорта
-                string passportCode = FindReferencedPassportCode(template);
-
-                if (!string.IsNullOrEmpty(passportCode))
-                {
-                    // Находим другие упаковочные листы, ссылающиеся на тот же паспорт
-                    return allTemplates.Where(t =>
-                        t.Id != template.Id &&
-                        t.IsActive &&
-                        (t.Type == "PackingList" || t.Type == "PackingInventory") &&
-                        IsPackingListRelatedToPassport(t, passportCode));
-                }
-                else
-                {
-                    // Если не нашли ссылку на паспорт, ищем по совпадению базового кода
-                    string baseCode = ExtractBaseCode(cleanCode);
-
-                    return allTemplates.Where(t =>
-                        t.Id != template.Id &&
-                        t.IsActive &&
-                        (t.Type == "PackingList" || t.Type == "PackingInventory") &&
-                        ExtractBaseCode(CleanupCode(t.Code)) == baseCode);
-                }
-            }
-
-            return Enumerable.Empty<DocumentTemplate>();
+            return allTemplates
+                .Where(t => t != null &&
+                       t.IsActive &&
+                       t.Id != template.Id &&
+                       allowedTypes.Contains(t.Type) &&
+                       GetKitFolder(t.WordTemplatePath) == kitFolder)
+                .ToList();
         }
 
         /// <summary>
-        /// Проверяет, связан ли упаковочный лист с паспортом
+        /// Извлекает название папки комплекта из пути
         /// </summary>
-        private static bool IsPackingListRelatedToPassport(DocumentTemplate packingList, string passportCode)
+        private static string GetKitFolder(string filePath)
         {
-            // Полный текст для поиска ссылок
-            string fullText = packingList.Code + " " + packingList.Name;
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
 
-            // 1. Ищем прямое упоминание кода паспорта в упаковочном листе
-            if (fullText.Contains(passportCode))
-            {
-                return true;
-            }
+            // Нормализуем путь и разбиваем на части
+            var parts = filePath.Replace('\\', '/')
+                               .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
-            // 2. Ищем альтернативную запись кода (с дефисами вместо точек и наоборот)
-            string alternativeCode = passportCode.Replace(".", "-");
-            if (passportCode.Contains(".") && fullText.Contains(alternativeCode))
-            {
-                return true;
-            }
-
-            alternativeCode = passportCode.Replace("-", ".");
-            if (passportCode.Contains("-") && fullText.Contains(alternativeCode))
-            {
-                return true;
-            }
-
-            // 3. Извлекаем базовый код (часть до третьего разделителя)
-            string basePassportCode = ExtractBaseCode(passportCode);
-
-            // Поиск шаблона, который может быть ссылкой на паспорт
-            // Например: ЭРЧМ30Т3, ЭСУВТ.01 и т.д.
-            var codePatterns = FindPossibleCodePatterns(fullText);
-
-            foreach (var pattern in codePatterns)
-            {
-                // Проверяем, содержит ли базовый код паспорта эту последовательность
-                // или наоборот
-                if (basePassportCode.Contains(pattern) || pattern.Contains(basePassportCode))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Находит возможные фрагменты кодов в тексте
-        /// </summary>
-        private static List<string> FindPossibleCodePatterns(string text)
-        {
-            var patterns = new List<string>();
-
-            // Ищем фрагменты вида "ЭСУВТ.01", "ЭРЧМ30Т3" и т.д. 
-            // Буквы кириллицы, затем возможны цифры, точки, дефисы, латинские буквы T
-            var matches = Regex.Matches(text, @"[А-Я]{1,6}[0-9А-Я\.T-]{1,20}");
-
-            foreach (Match match in matches)
-            {
-                string pattern = match.Value;
-
-                // Фильтруем слишком короткие паттерны и общие слова
-                if (pattern.Length >= 5 && !IsCommonWord(pattern))
-                {
-                    patterns.Add(pattern);
-                }
-            }
-
-            return patterns;
-        }
-
-        /// <summary>
-        /// Проверяет, является ли строка общим словом (не кодом)
-        /// </summary>
-        private static bool IsCommonWord(string text)
-        {
-            // Список общих слов, которые могут встречаться, но не являются кодами
-            var commonWords = new[] { "ПАСПОРТ", "УПАКОВОЧНЫЙ", "ЛИСТ", "СИСТЕМА" };
-
-            return commonWords.Contains(text);
-        }
-
-        /// <summary>
-        /// Находит код паспорта, на который ссылается упаковочный лист
-        /// </summary>
-        private static string FindReferencedPassportCode(DocumentTemplate packingList)
-        {
-            string fullText = packingList.Code + " " + packingList.Name;
-
-            // Извлекаем базовый код упаковочного листа
-            string baseCode = ExtractBaseCode(CleanupCode(packingList.Code));
-
-            // Ищем все возможные ссылки на коды в тексте
-            var codePatterns = FindPossibleCodePatterns(fullText);
-
-            // Отфильтровываем те, которые не похожи на базовый код упаковочного листа
-            // (скорее всего, они относятся к ссылке на паспорт)
-            return codePatterns
-                .Where(p => !baseCode.Contains(p) && !p.Contains(baseCode))
-                .FirstOrDefault() ?? string.Empty;
-        }
-
-        /// <summary>
-        /// Извлекает базовую часть кода (до третьего разделителя)
-        /// </summary>
-        private static string ExtractBaseCode(string code)
-        {
-            if (string.IsNullOrEmpty(code))
-                return string.Empty;
-
-            // Разделяем код по точкам и дефисам
-            var separators = new[] { '.', '-' };
-            string[] parts = code.Split(separators);
-
-            // Если в коде есть серия с буквой T (например, ЭРЧМ30Т3),
-            // берем ее целиком как базовый код
-            if (parts.Length > 0 && parts[0].Contains("Т"))
-            {
-                return parts[0];
-            }
-
-            // Если есть хотя бы 2 части, берем первые две
+            // Папка комплекта всегда находится на предпоследнем уровне
+            // Например: "Passport/ЭСУВТ.01-06-00 (Депо)/файл.docx"
             if (parts.Length >= 2)
             {
-                return parts[0] + "." + parts[1];
+                // Удаляем возможные пробелы в конце скобок
+                return parts[^2].TrimEnd();
             }
 
-            return code;
+            return null;
         }
 
         /// <summary>
-        /// Очищает код от скобок и текста после пробела
+        /// Проверяет, относятся ли документы к одному комплекту
         /// </summary>
-        private static string CleanupCode(string code)
+        public static bool AreTemplatesRelated(DocumentTemplate template1, DocumentTemplate template2)
         {
-            if (string.IsNullOrEmpty(code))
-                return string.Empty;
+            if (template1 == null || template2 == null)
+                return false;
 
-            // Обрезаем всё после первого пробела
-            if (code.Contains(" "))
+            string folder1 = GetKitFolder(template1.WordTemplatePath);
+            string folder2 = GetKitFolder(template2.WordTemplatePath);
+
+            return folder1 != null && folder1 == folder2;
+        }
+
+        /// <summary>
+        /// Группирует документы по комплектам
+        /// </summary>
+        public static Dictionary<string, List<DocumentTemplate>> GroupTemplatesByKit(
+            IEnumerable<DocumentTemplate> templates)
+        {
+            var result = new Dictionary<string, List<DocumentTemplate>>();
+
+            foreach (var template in templates.Where(t => t != null && t.IsActive))
             {
-                code = code.Substring(0, code.IndexOf(" "));
+                string kitFolder = GetKitFolder(template.WordTemplatePath);
+                if (string.IsNullOrEmpty(kitFolder))
+                    continue;
+
+                if (!result.ContainsKey(kitFolder))
+                {
+                    result[kitFolder] = new List<DocumentTemplate>();
+                }
+
+                result[kitFolder].Add(template);
             }
 
-            // Удаляем скобки и их содержимое
-            code = Regex.Replace(code, @"\([^)]*\)", "");
-
-            return code;
+            return result;
         }
     }
 }
