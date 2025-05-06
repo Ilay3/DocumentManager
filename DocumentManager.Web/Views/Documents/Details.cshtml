@@ -30,9 +30,13 @@
         </div>
         <div class="col-lg-4 mt-3 mt-lg-0">
             <div class="d-flex justify-content-lg-end">
-                <a href="@Url.Action("Index", "Documents")" class="btn btn-outline-secondary me-2">
-                    <i class="bi bi-arrow-left"></i> Назад
-                </a>
+                <partial name="_BackButton" model='new BackButtonModel {
+                    FallbackUrl = Url.Action("Index", "Documents"),
+                    ButtonText = "Назад к списку",
+                    ButtonClass = "btn btn-outline-secondary me-2",
+                    PreserveQuery = true
+                }' />
+
 
                 <div class="btn-group">
                     <a href="@Url.Action("GenerateAsync", "Documents", new { id = Model.Id })" class="btn btn-primary">

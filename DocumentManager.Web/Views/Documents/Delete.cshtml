@@ -25,6 +25,11 @@
     <form asp-action="Delete">
         <input type="hidden" asp-for="Id" />
         <button type="submit" class="btn btn-danger">Удалить</button>
-        <a asp-action="Index" class="btn btn-secondary">Отмена</a>
+        <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Index", "Documents"),
+    ButtonText = "Отмена",
+    ButtonClass = "btn btn-secondary",
+    PreserveQuery = true
+}' />
     </form>
 </div>

@@ -8,9 +8,10 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Файлы шаблонов</h1>
     <div>
-        <a asp-action="Index" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Назад к шаблонам
-        </a>
+        <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Index", "TemplatesAdmin"),
+    ButtonText = "Назад к шаблонам"
+}' />
     </div>
 </div>
 

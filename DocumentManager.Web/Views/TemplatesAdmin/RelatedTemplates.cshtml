@@ -1,0 +1,227 @@
+﻿@model DocumentManager.Web.Models.RelatedTemplatesViewModel
+
+@{
+    ViewData["Title"] = "Связанные шаблоны";
+}
+
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h1 class="display-6 mb-0">
+            <i class="bi bi-diagram-3 text-primary me-2"></i> Связанные шаблоны
+        </h1>
+        <p class="text-muted mt-2">@Model.MainTemplate.Name</p>
+    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Index", "TemplatesAdmin"),
+    ButtonText = "Назад к списку",
+    PreserveQuery = true
+}' />
+    </div>
+</div>
+
+<div class="row">
+    <!-- Карточка основного шаблона -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-earmark-text me-2"></i> Основной шаблон
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted d-block">Код шаблона</label>
+                    <div class="fw-bold fs-5">@Model.MainTemplate.Code</div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Наименование</label>
+                    <div>@Model.MainTemplate.Name</div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Тип документа</label>
+                    <div>
+                        @{
+                            string badgeClass = "bg-secondary";
+                            string displayType = Model.MainTemplate.Type;
+
+                            if (Model.MainTemplate.Type == "Passport")
+                            {
+                                badgeClass = "bg-primary";
+                                displayType = "Паспорт";
+                            }
+                            else if (Model.MainTemplate.Type == "PackingList")
+                            {
+                                badgeClass = "bg-success";
+                                displayType = "Упаковочный лист";
+                            }
+                            else if (Model.MainTemplate.Type == "PackingInventory")
+                            {
+                                badgeClass = "bg-info";
+                                displayType = "Упаковочная ведомость";
+                            }
+                        }
+                        <span class="badge @badgeClass">@displayType</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Статус</label>
+                    <div>
+                        @if (Model.MainTemplate.IsActive)
+                        {
+                            <span class="badge bg-success">Активен</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Неактивен</span>
+                        }
+                    </div>
+                </div>
+                <div class="mt-auto pt-3">
+                    <div class="d-grid gap-2">
+                        <a asp-controller="Templates" asp-action="Details" asp-route-id="@Model.MainTemplate.Id" class="btn btn-outline-primary">
+                            <i class="bi bi-info-circle"></i> Подробности
+                        </a>
+                        <a asp-action="ValidateTemplate" asp-route-id="@Model.MainTemplate.Id" class="btn btn-outline-secondary">
+                            <i class="bi bi-check-circle"></i> Проверить
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Связанные шаблоны -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-diagram-3 text-primary me-2"></i> Связанные шаблоны
+                    </h5>
+                    <span class="badge bg-primary">@Model.RelatedTemplates.Count</span>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (!Model.RelatedTemplates.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i> Связанные шаблоны не найдены
+                    </div>
+                    <p class="text-muted">
+                        Связанные шаблоны определяются на основе расположения файлов в общей папке.
+                        Паспорта могут быть связаны с упаковочными листами и упаковочными ведомостями.
+                    </p>
+                }
+                else
+                {
+                    <div class="row g-4">
+                        @foreach (var template in Model.RelatedTemplates)
+                        {
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="me-3">
+                                                @{
+                                                    string iconClass = "bi-file-earmark-text";
+                                                    string typeColor = "text-secondary";
+
+                                                    if (template.Type == "Passport")
+                                                    {
+                                                        iconClass = "bi-journal-bookmark";
+                                                        typeColor = "text-primary";
+                                                    }
+                                                    else if (template.Type == "PackingList")
+                                                    {
+                                                        iconClass = "bi-box-seam";
+                                                        typeColor = "text-success";
+                                                    }
+                                                    else if (template.Type == "PackingInventory")
+                                                    {
+                                                        iconClass = "bi-clipboard-check";
+                                                        typeColor = "text-info";
+                                                    }
+                                                }
+                                                <i class="bi @iconClass fs-4 @typeColor"></i>
+                                            </div>
+                                            <div>
+                                                <h5 class="card-title mb-0">@template.Name</h5>
+                                                <div class="text-muted small">@template.Code</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="template-type mb-3">
+                                            @{
+                                                string tBadgeClass = "bg-secondary";
+                                                string tDisplayType = template.Type;
+
+                                                if (template.Type == "Passport")
+                                                {
+                                                    tBadgeClass = "bg-primary";
+                                                    tDisplayType = "Паспорт";
+                                                }
+                                                else if (template.Type == "PackingList")
+                                                {
+                                                    tBadgeClass = "bg-success";
+                                                    tDisplayType = "Упаковочный лист";
+                                                }
+                                                else if (template.Type == "PackingInventory")
+                                                {
+                                                    tBadgeClass = "bg-info";
+                                                    tDisplayType = "Упаковочная ведомость";
+                                                }
+                                            }
+                                            <span class="badge @tBadgeClass">@tDisplayType</span>
+                                            @if (template.IsActive)
+                                            {
+                                                <span class="badge bg-success ms-1">Активен</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger ms-1">Неактивен</span>
+                                            }
+                                        </div>
+
+                                        <div class="template-actions mt-auto pt-3 d-flex justify-content-between">
+                                            <a asp-controller="Templates" asp-action="Details" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-info-circle"></i> Подробности
+                                            </a>
+                                            <a asp-action="ValidateTemplate" asp-route-id="@template.Id" class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-check-circle"></i> Проверить
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-lightbulb text-warning me-2"></i> Как работают связанные шаблоны
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Связанные шаблоны определяются автоматически на основе следующих принципов:</p>
+                <ul>
+                    <li>Шаблоны, находящиеся в одной директории, считаются связанными между собой</li>
+                    <li>Паспорта могут быть связаны с упаковочными листами и упаковочными ведомостями</li>
+                    <li>При создании документа на основе паспорта, связанные документы могут быть созданы одновременно с ним</li>
+                    <li>Все связанные документы получают одинаковый заводской номер для обеспечения целостности</li>
+                </ul>
+                <p class="mb-0">Используйте одинаковые структуры директорий для документов, которые должны быть связаны между собой.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 mb-5">
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Назад к списку
+    </a>
+</div>

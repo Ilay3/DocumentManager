@@ -1,12 +1,15 @@
 ﻿// DocumentManager.Web/Controllers/TemplatesAdminController.cs
+using DocumentManager.Core.Entities;
 using DocumentManager.Core.Interfaces;
 using DocumentManager.Infrastructure.Services;
+using DocumentManager.Web.Helpers;
 using DocumentManager.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace DocumentManager.Web.Controllers
@@ -41,9 +44,8 @@ namespace DocumentManager.Web.Controllers
         }
 
 
-
         // GET: TemplatesAdmin
-        public async Task<IActionResult> Index(string filter = null)
+        public async Task<IActionResult> Index(string searchTerm = null, string type = null, bool? isActive = null, string sortBy = "Name", string sortDir = "asc")
         {
             try
             {
@@ -61,18 +63,42 @@ namespace DocumentManager.Web.Controllers
                         JsonSchemaPath = t.JsonSchemaPath,
                         WordTemplatePath = t.WordTemplatePath
                     }).ToList(),
-                    Filter = filter
+                    SearchTerm = searchTerm,
+                    TypeFilter = type,
+                    IsActiveFilter = isActive,
+                    SortBy = sortBy,
+                    SortDirection = sortDir
                 };
 
-                // Применяем фильтр, если он задан
-                if (!string.IsNullOrEmpty(filter))
+                // Применяем фильтры
+                if (!string.IsNullOrEmpty(searchTerm))
                 {
                     viewModel.Templates = viewModel.Templates
                         .Where(t =>
-                            t.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                            t.Code.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                            t.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                            t.Code.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
                         .ToList();
                 }
+
+                if (!string.IsNullOrEmpty(type))
+                {
+                    viewModel.Templates = viewModel.Templates
+                        .Where(t => t.Type == type)
+                        .ToList();
+                }
+
+                if (isActive.HasValue)
+                {
+                    viewModel.Templates = viewModel.Templates
+                        .Where(t => t.IsActive == isActive.Value)
+                        .ToList();
+                }
+
+                // Применяем сортировку
+                viewModel.Templates = SortTemplates(viewModel.Templates, sortBy, sortDir).ToList();
+
+                // Заполняем список доступных типов для фильтра
+                viewModel.AvailableTypes = templates.Select(t => t.Type).Distinct().ToList();
 
                 return View(viewModel);
             }
@@ -82,6 +108,342 @@ namespace DocumentManager.Web.Controllers
                 TempData["ErrorMessage"] = $"Ошибка при получении списка шаблонов: {ex.Message}";
                 return View(new TemplatesAdminViewModel());
             }
+        }
+
+        // GET: TemplatesAdmin/RelatedTemplates/5
+        public async Task<IActionResult> RelatedTemplates(int id)
+        {
+            try
+            {
+                var template = await _templateService.GetTemplateByIdAsync(id);
+
+                if (template == null)
+                {
+                    TempData["ErrorMessage"] = $"Шаблон с ID {id} не найден";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Получаем все шаблоны, чтобы искать связанные
+                var allTemplates = await _templateService.GetAllTemplatesAsync(true);
+
+                // Используем вспомогательный класс для определения связанных шаблонов
+                var relatedTemplates = DocumentRelationHelper.FindRelatedTemplates(template, allTemplates);
+
+                var viewModel = new RelatedTemplatesViewModel
+                {
+                    MainTemplate = new DocumentTemplateViewModel
+                    {
+                        Id = template.Id,
+                        Code = template.Code,
+                        Name = template.Name,
+                        Type = template.Type,
+                        IsActive = template.IsActive
+                    },
+                    RelatedTemplates = relatedTemplates.Select(t => new DocumentTemplateViewModel
+                    {
+                        Id = t.Id,
+                        Code = t.Code,
+                        Name = t.Name,
+                        Type = t.Type,
+                        IsActive = t.IsActive
+                    }).ToList()
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при получении связанных шаблонов для ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // GET: TemplatesAdmin/ValidateTemplate/5
+        public async Task<IActionResult> ValidateTemplate(int id)
+        {
+            try
+            {
+                var template = await _templateService.GetTemplateByIdAsync(id);
+
+                if (template == null)
+                {
+                    TempData["ErrorMessage"] = $"Шаблон с ID {id} не найден";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Получаем поля шаблона
+                var fields = await _templateService.GetTemplateFieldsAsync(id);
+
+                // Получаем полный путь к шаблону Word
+                string wordTemplatePath = Path.Combine(_templatesBasePath, template.WordTemplatePath);
+
+                // Проверяем наличие файла шаблона
+                bool templateExists = System.IO.File.Exists(wordTemplatePath);
+
+                // Получаем плейсхолдеры из шаблона Word
+                List<string> placeholders = new List<string>();
+
+                if (templateExists)
+                {
+                    // Для файлов .doc используем DocBinaryTemplateHandler
+                    if (Path.GetExtension(wordTemplatePath).ToLowerInvariant() == ".doc")
+                    {
+                        var docHandler = new DocBinaryTemplateHandler(_logger);
+                        placeholders = docHandler.FindPlaceholders(wordTemplatePath);
+                    }
+                    // Для .docx можно использовать DocX
+                    else if (Path.GetExtension(wordTemplatePath).ToLowerInvariant() == ".docx")
+                    {
+                        try
+                        {
+                            using (var doc = Xceed.Words.NET.DocX.Load(wordTemplatePath))
+                            {
+                                string text = doc.Text;
+                                var matches = Regex.Matches(text, @"\{\{([^}]+)\}\}");
+                                foreach (Match match in matches)
+                                {
+                                    if (match.Groups.Count > 1)
+                                    {
+                                        placeholders.Add(match.Groups[1].Value);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Ошибка при чтении шаблона DOCX: {wordTemplatePath}");
+                        }
+                    }
+                }
+
+                // Создаем список полей из шаблона
+                var fieldNames = fields.Select(f => f.FieldName).ToList();
+
+                // Находим плейсхолдеры, которых нет в полях
+                var missingFields = placeholders.Except(fieldNames, StringComparer.OrdinalIgnoreCase).ToList();
+
+                // Находим поля, которых нет в плейсхолдерах
+                var unusedFields = fieldNames.Except(placeholders, StringComparer.OrdinalIgnoreCase).ToList();
+
+                var viewModel = new TemplateValidationViewModel
+                {
+                    Template = new DocumentTemplateViewModel
+                    {
+                        Id = template.Id,
+                        Code = template.Code,
+                        Name = template.Name,
+                        Type = template.Type,
+                        IsActive = template.IsActive,
+                        WordTemplatePath = template.WordTemplatePath,
+                        JsonSchemaPath = template.JsonSchemaPath
+                    },
+                    TemplateExists = templateExists,
+                    Fields = fields.Select(f => new DocumentFieldViewModel
+                    {
+                        Id = f.Id,
+                        FieldName = f.FieldName,
+                        FieldLabel = f.FieldLabel,
+                        FieldType = f.FieldType,
+                        IsRequired = f.IsRequired,
+                        IsUnique = f.IsUnique
+                    }).ToList(),
+                    Placeholders = placeholders,
+                    MissingFields = missingFields,
+                    UnusedFields = unusedFields,
+                    IsValid = !missingFields.Any() && templateExists
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при валидации шаблона ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // GET: TemplatesAdmin/PreviewTemplate/5
+        public async Task<IActionResult> PreviewTemplate(int id)
+        {
+            try
+            {
+                var template = await _templateService.GetTemplateByIdAsync(id);
+
+                if (template == null)
+                {
+                    TempData["ErrorMessage"] = $"Шаблон с ID {id} не найден";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Получаем поля шаблона
+                var fields = await _templateService.GetTemplateFieldsAsync(id);
+
+                // Создаем модель для предпросмотра с тестовыми значениями
+                var viewModel = new TemplatePreviewViewModel
+                {
+                    TemplateId = template.Id,
+                    TemplateName = template.Name,
+                    TemplateCode = template.Code,
+                    TemplateType = template.Type,
+                    WordTemplatePath = template.WordTemplatePath,
+                    Fields = fields.Select(f => new DocumentFieldViewModel
+                    {
+                        Id = f.Id,
+                        FieldName = f.FieldName,
+                        FieldLabel = f.FieldLabel,
+                        FieldType = f.FieldType,
+                        IsRequired = f.IsRequired,
+                        IsUnique = f.IsUnique,
+                        DefaultValue = f.DefaultValue,
+                        Value = GetTestValueForField(f) // Генерируем тестовое значение
+                    }).ToList()
+                };
+
+                // Заполняем тестовые значения для предпросмотра
+                var testValues = new Dictionary<string, string>();
+                foreach (var field in viewModel.Fields)
+                {
+                    testValues[field.FieldName] = field.Value;
+                }
+
+                viewModel.TestValues = testValues;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при предпросмотре шаблона ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // Вспомогательный метод для генерации тестовых значений
+        private string GetTestValueForField(DocumentField field)
+        {
+            // Если есть значение по умолчанию - используем его
+            if (!string.IsNullOrEmpty(field.DefaultValue))
+            {
+                return field.DefaultValue;
+            }
+
+            // Иначе генерируем тестовое значение в зависимости от типа поля
+            switch (field.FieldType.ToLower())
+            {
+                case "date":
+                    return DateTime.Now.ToString("yyyy-MM-dd");
+
+                case "select":
+                    // Получаем первое значение из списка опций (если есть)
+                    if (!string.IsNullOrEmpty(field.Options))
+                    {
+                        try
+                        {
+                            var options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(field.Options);
+                            if (options != null && options.Any())
+                            {
+                                return options.First();
+                            }
+                        }
+                        catch { }
+                    }
+                    return "Тестовое значение";
+
+                default:
+                    // Для FactoryNumber сделаем специальное значение
+                    if (field.FieldName.Contains("FactoryNumber", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "ТЕСТ-" + DateTime.Now.ToString("yyyyMMdd");
+                    }
+
+                    // Для других полей используем имя поля
+                    return "Тестовое значение для " + field.FieldLabel;
+            }
+        }
+
+        // POST: TemplatesAdmin/GenerateTestDocument
+        [HttpPost]
+        public async Task<IActionResult> GenerateTestDocument(int templateId, Dictionary<string, string> fieldValues)
+        {
+            try
+            {
+                var template = await _templateService.GetTemplateByIdAsync(templateId);
+
+                if (template == null)
+                {
+                    TempData["ErrorMessage"] = $"Шаблон с ID {templateId} не найден";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Получаем путь к шаблону Word
+                string templatePath = template.WordTemplatePath;
+
+                // Генерируем имя выходного файла
+                string outputFileName = $"ТЕСТ_{template.Code}_{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(templatePath)}";
+
+                // Создаем тестовый документ
+                var result = await _documentGenerationService.GenerateDocumentAsync(templatePath, fieldValues, outputFileName);
+
+                // Получаем путь к созданному файлу и его содержимое
+                string filePath = result.FilePath;
+                byte[] content = result.Content;
+
+                // Возвращаем файл пользователю для скачивания
+                return File(content, GetContentType(filePath), Path.GetFileName(filePath));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при генерации тестового документа для шаблона ID {templateId}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(PreviewTemplate), new { id = templateId });
+            }
+        }
+
+        private string GetContentType(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+            return extension switch
+            {
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".doc" => "application/msword",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream",
+            };
+        }
+
+        private IEnumerable<DocumentTemplateViewModel> SortTemplates(IEnumerable<DocumentTemplateViewModel> templates, string sortBy, string sortDir)
+        {
+            IOrderedEnumerable<DocumentTemplateViewModel> sortedTemplates;
+
+            switch (sortBy.ToLower())
+            {
+                case "code":
+                    sortedTemplates = sortDir.ToLower() == "asc" ?
+                        templates.OrderBy(t => t.Code) :
+                        templates.OrderByDescending(t => t.Code);
+                    break;
+                case "type":
+                    sortedTemplates = sortDir.ToLower() == "asc" ?
+                        templates.OrderBy(t => t.Type) :
+                        templates.OrderByDescending(t => t.Type);
+                    break;
+                case "status":
+                    sortedTemplates = sortDir.ToLower() == "asc" ?
+                        templates.OrderBy(t => t.IsActive) :
+                        templates.OrderByDescending(t => t.IsActive);
+                    break;
+                case "name":
+                default:
+                    sortedTemplates = sortDir.ToLower() == "asc" ?
+                        templates.OrderBy(t => t.Name) :
+                        templates.OrderByDescending(t => t.Name);
+                    break;
+            }
+
+            return sortedTemplates;
         }
 
         // GET: TemplatesAdmin/Sync
@@ -509,6 +871,45 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        
+        // GET: TemplatesAdmin/ToggleActive/5
+        public async Task<IActionResult> ToggleActive(int id)
+        {
+            try
+            {
+                var template = await _templateService.GetTemplateByIdAsync(id);
+
+                if (template == null)
+                {
+                    TempData["ErrorMessage"] = $"Шаблон с ID {id} не найден";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Изменяем статус активности на противоположный
+                template.IsActive = !template.IsActive;
+
+                // Сохраняем изменения
+                var result = await _templateService.UpdateTemplateAsync(template);
+
+                if (result)
+                {
+                    string statusMessage = template.IsActive ? "активирован" : "деактивирован";
+                    TempData["SuccessMessage"] = $"Шаблон '{template.Name}' успешно {statusMessage}";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Не удалось изменить статус шаблона";
+                }
+
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при изменении статуса шаблона ID {id}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+
     }
 }

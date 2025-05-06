@@ -1,29 +1,629 @@
-﻿@{
+﻿
+@{
     ViewData["Title"] = "Главная";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Система управления документами</h1>
-    <p>Система для создания, управления и генерации документов на основе шаблонов.</p>
-
-    <div class="row mt-5">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Документы</h5>
-                    <p class="card-text">Создание и управление документами на основе шаблонов.</p>
-                    <a asp-controller="Documents" asp-action="Index" class="btn btn-primary">Перейти к документам</a>
-                </div>
+<!-- Hero Section -->
+<div class="hero-section mb-5">
+    <div class="row align-items-center">
+        <div class="col-lg-6 pe-lg-5">
+            <h1 class="display-4 fw-bold text-gradient mb-3">
+                Управление документами на новом уровне
+            </h1>
+            <p class="lead mb-4">Автоматизируйте создание и управление технической документацией с помощью интеллектуальных шаблонов и современных инструментов</p>
+            <div class="d-flex flex-wrap gap-3">
+                <a asp-controller="Documents" asp-action="Create" class="btn btn-primary btn-lg px-4 py-2 rounded-pill">
+                    <i class="bi bi-plus-circle me-2"></i>Создать документ
+                </a>
+                <a asp-controller="Documents" asp-action="Index" class="btn btn-outline-secondary btn-lg px-4 py-2 rounded-pill">
+                    <i class="bi bi-folder2 me-2"></i>Библиотека документов
+                </a>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Шаблоны</h5>
-                    <p class="card-text">Просмотр доступных шаблонов документов.</p>
-                    <a asp-controller="Templates" asp-action="Index" class="btn btn-secondary">Перейти к шаблонам</a>
+        <div class="col-lg-6 mt-5 mt-lg-0">
+            <div class="hero-animation">
+                <div class="document-stack">
+                    <div class="doc-card doc-card-1">
+                        <div class="doc-header"></div>
+                        <div class="doc-body">
+                            <div class="doc-line"></div>
+                            <div class="doc-line"></div>
+                            <div class="doc-line"></div>
+                        </div>
+                        <div class="doc-footer">
+                            <div class="doc-icon"><i class="bi bi-file-earmark-check"></i></div>
+                        </div>
+                    </div>
+                    <div class="doc-card doc-card-2">
+                        <div class="doc-header"></div>
+                        <div class="doc-body">
+                            <div class="doc-line"></div>
+                            <div class="doc-line"></div>
+                        </div>
+                        <div class="doc-footer">
+                            <div class="doc-icon"><i class="bi bi-file-earmark-text"></i></div>
+                        </div>
+                    </div>
+                    <div class="doc-card doc-card-3">
+                        <div class="doc-header"></div>
+                        <div class="doc-body">
+                            <div class="doc-line"></div>
+                            <div class="doc-line"></div>
+                            <div class="doc-line"></div>
+                        </div>
+                        <div class="doc-footer">
+                            <div class="doc-icon"><i class="bi bi-file-earmark-ruled"></i></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Quick Stats -->
+<div class="stats-section mb-5">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="stats-card text-center py-4 h-100">
+                <i class="bi bi-file-earmark-text display-4 text-primary mb-3"></i>
+                <h3 class="stats-number">10+ <span class="stats-text">типов документов</span></h3>
+                <p class="text-muted mb-0">Паспорта, упаковочные листы, ведомости и другие документы в одной системе</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card text-center py-4 h-100">
+                <i class="bi bi-lightning display-4 text-primary mb-3"></i>
+                <h3 class="stats-number">5 мин <span class="stats-text">на создание</span></h3>
+                <p class="text-muted mb-0">Высокая скорость формирования готовых документов из шаблонов</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card text-center py-4 h-100">
+                <i class="bi bi-shield-check display-4 text-primary mb-3"></i>
+                <h3 class="stats-number">100% <span class="stats-text">соответствие</span></h3>
+                <p class="text-muted mb-0">Гарантия соответствия всем стандартам и нормативным требованиям</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Features -->
+<div class="features-section mb-5">
+    <h2 class="section-title mb-4 text-center">Основные возможности</h2>
+    <div class="row g-4">
+        <div class="col-md-6 col-lg-3 feature-item-parent">
+            <div class="feature-card h-100">
+                <div class="feature-icon text-center mb-3">
+                    <div class="icon-circle">
+                        <i class="bi bi-file-earmark-plus"></i>
+                    </div>
+                </div>
+                <h5 class="feature-title text-center">Создание документов</h5>
+                <p class="mb-3">Быстрое создание документации на основе интеллектуальных шаблонов с автозаполнением полей</p>
+                <a asp-controller="Documents" asp-action="Create" class="icon-link">
+                    Начать создание
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3 feature-item-parent">
+            <div class="feature-card h-100">
+                <div class="feature-icon text-center mb-3">
+                    <div class="icon-circle">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                </div>
+                <h5 class="feature-title text-center">Связывание документов</h5>
+                <p class="mb-3">Автоматическое связывание паспортов с упаковочными листами и ведомостями</p>
+                <a asp-controller="Documents" asp-action="Index" class="icon-link">
+                    Управление связями
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3 feature-item-parent">
+            <div class="feature-card h-100">
+                <div class="feature-icon text-center mb-3">
+                    <div class="icon-circle">
+                        <i class="bi bi-file-earmark-ruled"></i>
+                    </div>
+                </div>
+                <h5 class="feature-title text-center">Шаблоны документов</h5>
+                <p class="mb-3">Настройка и использование готовых шаблонов для различных типов документации</p>
+                <a asp-controller="Templates" asp-action="Index" class="icon-link">
+                    Просмотреть шаблоны
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3 feature-item-parent">
+            <div class="feature-card h-100">
+                <div class="feature-icon text-center mb-3">
+                    <div class="icon-circle">
+                        <i class="bi bi-file-earmark-arrow-down"></i>
+                    </div>
+                </div>
+                <h5 class="feature-title text-center">Экспорт документов</h5>
+                <p class="mb-3">Выгрузка готовых документов в формате Word или пакетом с упаковочными листами</p>
+                <a asp-controller="Documents" asp-action="Index" class="icon-link">
+                    Управление экспортом
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Access -->
+<div class="quick-access-section mb-5">
+    <h2 class="section-title mb-4">Быстрый доступ</h2>
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 quick-action-card documents-card">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="quick-action-icon">
+                                <i class="bi bi-folder2-open text-white"></i>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <h5 class="mb-2">Ваши документы</h5>
+                            <p class="card-text mb-3">Управление существующими документами, генерация и выгрузка файлов</p>
+                            <div class="quick-actions">
+                                <a asp-controller="Documents" asp-action="Index" class="btn btn-primary">
+                                    <i class="bi bi-search me-2"></i>Просмотр всех документов
+                                </a>
+                                <a asp-controller="Documents" asp-action="Create" class="btn btn-outline-primary ms-2">
+                                    <i class="bi bi-plus-lg me-2"></i>Добавить
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100 quick-action-card templates-card">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="quick-action-icon">
+                                <i class="bi bi-file-earmark-code text-white"></i>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <h5 class="mb-2">Шаблоны документов</h5>
+                            <p class="card-text mb-3">Просмотр и управление шаблонами для создания различных типов документов</p>
+                            <div class="quick-actions">
+                                <a asp-controller="Templates" asp-action="Index" class="btn btn-success">
+                                    <i class="bi bi-grid-3x3-gap me-2"></i>Все шаблоны
+                                </a>
+                                <a asp-controller="TemplatesAdmin" asp-action="Index" class="btn btn-outline-success ms-2">
+                                    <i class="bi bi-gear me-2"></i>Настройка
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity (Optional) -->
+<div class="recent-activity-section mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="section-title mb-0">Последние действия</h2>
+        <a asp-controller="Documents" asp-action="Index" class="btn btn-link p-0">
+            Смотреть все <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="card">
+        <div class="activity-timeline p-4">
+            <div class="timeline-item">
+                <div class="timeline-icon">
+                    <i class="bi bi-file-earmark-plus"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Создан новый документ: "ЭРЧМ30Т2 Паспорт"</h6>
+                        <small class="text-muted">Сегодня, 14:32</small>
+                    </div>
+                    <p class="text-muted mb-0">Заводской номер: ER20240506-001</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-icon">
+                    <i class="bi bi-download"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Выгружен комплект документов</h6>
+                        <small class="text-muted">Вчера, 16:15</small>
+                    </div>
+                    <p class="text-muted mb-0">Паспорт и упаковочные листы: ER20240505-003</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-icon">
+                    <i class="bi bi-gear"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h6 class="mb-0">Синхронизированы шаблоны документов</h6>
+                        <small class="text-muted">03.05.2025, 09:20</small>
+                    </div>
+                    <p class="text-muted mb-0">Обновлено 5 шаблонов, добавлено 2 новых шаблона</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help & Support -->
+<div class="help-section mb-5">
+    <div class="card">
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="mb-2">Нужна помощь с системой?</h4>
+                    <p class="mb-md-0">Свяжитесь с технической поддержкой или ознакомьтесь с документацией</p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <button type="button" class="btn btn-outline-primary">
+                        <i class="bi bi-question-circle me-2"></i>Открыть справочник
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Основные стили */
+    .section-title {
+        color: var(--dark-color);
+        font-weight: 600;
+        position: relative;
+        display: inline-block;
+    }
+
+    /* Градиентный текст */
+    .text-gradient {
+        background: linear-gradient(90deg, #2b5797 0%, #5f8fcf 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* Hero секция */
+    .hero-section {
+        padding: 3rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Анимация документов */
+    .hero-animation {
+        position: relative;
+        height: 360px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        perspective: 1000px;
+    }
+
+    .document-stack {
+        position: relative;
+        width: 280px;
+        height: 360px;
+        transform-style: preserve-3d;
+        animation: float 6s ease-in-out infinite;
+    }
+
+    .doc-card {
+        position: absolute;
+        width: 280px;
+        height: 360px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        padding: 20px;
+        transition: all 0.5s;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .doc-card-1 {
+        transform: translateZ(40px);
+        top: -20px;
+        left: 40px;
+        border-top: 5px solid #2b5797;
+    }
+
+    .doc-card-2 {
+        transform: translateZ(20px) translateX(-20px) translateY(10px);
+        border-top: 5px solid #5f8fcf;
+    }
+
+    .doc-card-3 {
+        transform: translateZ(0) translateX(20px) translateY(40px);
+        border-top: 5px solid #d4e3f9;
+    }
+
+    .doc-header {
+        height: 24px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+
+    .doc-body {
+        flex: 1;
+    }
+
+    .doc-line {
+        height: 12px;
+        background: #f0f7ff;
+        margin-bottom: 10px;
+        border-radius: 3px;
+        width: 90%;
+    }
+
+    .doc-line:nth-child(2) {
+        width: 70%;
+    }
+
+    .doc-line:nth-child(3) {
+        width: 50%;
+    }
+
+    .doc-footer {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: auto;
+    }
+
+    .doc-icon {
+        width: 36px;
+        height: 36px;
+        background: #f0f7ff;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #2b5797;
+    }
+
+    @@keyframes float {
+        0%, 100% {
+            transform: translateY(0px) rotate(0deg);
+        }
+        50% {
+            transform: translateY(-15px) rotate(2deg);
+        }
+    }
+
+    /* Stats Cards */
+    .stats-card {
+        background-color: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .stats-text {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #6c757d;
+    }
+
+    /* Feature Cards */
+    .feature-card {
+        background-color: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+        position: relative;
+        z-index: 1;
+    }
+
+    .feature-item-parent:hover .feature-card {
+        border-color: #e6f0ff;
+        transform: translateY(-7px);
+        box-shadow: 0 15px 30px rgba(43, 87, 151, 0.1);
+    }
+
+    .feature-icon .icon-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background-color: #f0f7ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .feature-item-parent:hover .icon-circle {
+        background-color: var(--primary-color);
+        color: white;
+        transform: scale(1.1);
+    }
+
+    .feature-title {
+        margin-bottom: 15px;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+
+    .feature-item-parent:hover .feature-title {
+        color: var(--primary-color);
+    }
+
+    .icon-link {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        margin-top: auto;
+    }
+
+    .icon-link i {
+        margin-left: 5px;
+        transition: transform 0.3s;
+    }
+
+    .icon-link:hover i {
+        transform: translateX(5px);
+    }
+
+    /* Quick Access Cards */
+    .quick-action-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s;
+        overflow: hidden;
+    }
+
+    .quick-action-card:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+    }
+
+    .documents-card:before {
+        background: linear-gradient(to right, #2b5797, #5f8fcf);
+    }
+
+    .templates-card:before {
+        background: linear-gradient(to right, #28a745, #5dd879);
+    }
+
+    .quick-action-card:hover {
+        transform: translateY(-7px);
+        box-shadow: 0 20px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .quick-action-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .documents-card .quick-action-icon {
+        background: linear-gradient(135deg, #2b5797, #5f8fcf);
+    }
+
+    .templates-card .quick-action-icon {
+        background: linear-gradient(135deg, #28a745, #5dd879);
+    }
+
+    /* Timeline Activity */
+    .activity-timeline {
+        position: relative;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 40px;
+        margin-bottom: 25px;
+    }
+
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 30px;
+        bottom: -25px;
+        width: 2px;
+        background: #e9ecef;
+    }
+
+    .timeline-item:last-child:before {
+        display: none;
+    }
+
+    .timeline-icon {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #f0f7ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-color);
+        font-size: 0.9rem;
+        z-index: 1;
+    }
+
+    .timeline-content {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    /* Responsive fixes */
+    @@media (max-width: 992px) {
+        .hero-animation {
+            height: 300px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .quick-actions {
+            flex-direction: column;
+        }
+
+        .quick-actions .btn {
+            margin: 5px 0;
+            width: 100%;
+        }
+
+        .quick-actions .ms-2 {
+            margin-left: 0 !important;
+            margin-top: 8px !important;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .document-stack {
+            transform: scale(0.8);
+        }
+    }
+</style>

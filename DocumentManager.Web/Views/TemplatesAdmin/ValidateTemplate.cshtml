@@ -1,0 +1,294 @@
+﻿@model DocumentManager.Web.Models.TemplateValidationViewModel
+
+@{
+    ViewData["Title"] = "Проверка шаблона";
+}
+
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h1 class="display-6 mb-0">
+            <i class="bi bi-check-circle text-primary me-2"></i> Проверка шаблона
+        </h1>
+        <p class="text-muted mt-2">@Model.Template.Name</p>
+    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Index", "TemplatesAdmin"),
+    ButtonText = "Назад к списку",
+    PreserveQuery = true
+}' />
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle text-primary me-2"></i> Информация о шаблоне
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted d-block">Код шаблона</label>
+                    <div class="fw-bold fs-5">@Model.Template.Code</div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Тип документа</label>
+                    <div>
+                        @{
+                            string badgeClass = "bg-secondary";
+                            string displayType = Model.Template.Type;
+
+                            if (Model.Template.Type == "Passport")
+                            {
+                                badgeClass = "bg-primary";
+                                displayType = "Паспорт";
+                            }
+                            else if (Model.Template.Type == "PackingList")
+                            {
+                                badgeClass = "bg-success";
+                                displayType = "Упаковочный лист";
+                            }
+                            else if (Model.Template.Type == "PackingInventory")
+                            {
+                                badgeClass = "bg-info";
+                                displayType = "Упаковочная ведомость";
+                            }
+                        }
+                        <span class="badge @badgeClass">@displayType</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Статус</label>
+                    <div>
+                        @if (Model.Template.IsActive)
+                        {
+                            <span class="badge bg-success">Активен</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Неактивен</span>
+                        }
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Путь к шаблону Word</label>
+                    <div class="small text-break">@Model.Template.WordTemplatePath</div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Путь к JSON-схеме</label>
+                    <div class="small text-break">@Model.Template.JsonSchemaPath</div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Результат проверки</label>
+                    <div>
+                        @if (Model.IsValid)
+                        {
+                            <div class="alert alert-success mb-0 py-2">
+                                <i class="bi bi-check-circle-fill me-2"></i> Шаблон прошел проверку
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-danger mb-0 py-2">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i> Шаблон содержит ошибки
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-file-earmark-word text-primary me-2"></i> Шаблон Word
+                    </h5>
+                    @if (!Model.TemplateExists)
+                    {
+                        <span class="badge bg-danger">Не найден</span>
+                    }
+                </div>
+            </div>
+            <div class="card-body">
+                @if (!Model.TemplateExists)
+                {
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Файл шаблона не найден по указанному пути
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-4">
+                        <h6>Обнаруженные плейсхолдеры (@Model.Placeholders.Count):</h6>
+                        @if (!Model.Placeholders.Any())
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i> В шаблоне не обнаружены плейсхолдеры
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Плейсхолдер</th>
+                                            <th>Статус</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var placeholder in Model.Placeholders)
+                                        {
+                                            bool hasField = !Model.MissingFields.Contains(placeholder, StringComparer.OrdinalIgnoreCase);
+                                            <tr>
+                                                <td>{{@placeholder}}</td>
+                                                <td>
+                                                    @if (hasField)
+                                                    {
+                                                        <span class="badge bg-success">Есть поле</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-danger">Нет поля</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-code-square text-primary me-2"></i> Поля JSON-схемы
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6>Определенные поля (@Model.Fields.Count):</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Имя поля</th>
+                                    <th>Метка</th>
+                                    <th>Тип</th>
+                                    <th>Атрибуты</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var field in Model.Fields)
+                                {
+                                    bool isUsed = !Model.UnusedFields.Contains(field.FieldName, StringComparer.OrdinalIgnoreCase);
+                                    <tr>
+                                        <td>@field.FieldName</td>
+                                        <td>@field.FieldLabel</td>
+                                        <td>
+                                            @{
+                                                string typeClass = "bg-secondary";
+                                                string typeName = field.FieldType;
+
+                                                if (field.FieldType == "text") { typeClass = "bg-primary"; typeName = "Текст"; }
+                                                else if (field.FieldType == "date") { typeClass = "bg-success"; typeName = "Дата"; }
+                                                else if (field.FieldType == "select") { typeClass = "bg-info"; typeName = "Список"; }
+                                            }
+                                            <span class="badge @typeClass">@typeName</span>
+                                        </td>
+                                        <td>
+                                            @if (field.IsRequired)
+                                            {
+                                                <span class="badge bg-danger me-1">Обязательное</span>
+                                            }
+                                            @if (field.IsUnique)
+                                            {
+                                                <span class="badge bg-warning text-dark me-1">Уникальное</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (isUsed)
+                                            {
+                                                <span class="badge bg-success">Используется</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Не используется</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ошибки и предупреждения -->
+        @if (Model.MissingFields.Any() || Model.UnusedFields.Any())
+        {
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i> Проблемы
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.MissingFields.Any())
+                    {
+                        <div class="mb-4">
+                            <h6 class="text-danger">Отсутствующие поля:</h6>
+                            <p>Следующие плейсхолдеры из шаблона Word не имеют соответствующих полей в JSON-схеме:</p>
+                            <ul>
+                                @foreach (var field in Model.MissingFields)
+                                {
+                                    <li><code>{{@field}}</code> - необходимо добавить поле в JSON-схему</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (Model.UnusedFields.Any())
+                    {
+                        <div>
+                            <h6 class="text-warning">Неиспользуемые поля:</h6>
+                            <p>Следующие поля из JSON-схемы не используются в шаблоне Word:</p>
+                            <ul>
+                                @foreach (var field in Model.UnusedFields)
+                                {
+                                    <li><code>@field</code> - поле определено, но не используется в шаблоне</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Кнопки действий -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад к списку
+            </a>
+            <div>
+                <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@Model.Template.JsonSchemaPath" class="btn btn-primary me-2">
+                    <i class="bi bi-pencil"></i> Редактировать JSON
+                </a>
+                <a asp-action="PreviewTemplate" asp-route-id="@Model.Template.Id" class="btn btn-success">
+                    <i class="bi bi-eye"></i> Предпросмотр документа
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

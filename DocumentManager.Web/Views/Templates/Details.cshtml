@@ -129,7 +129,10 @@
 </div>
 
 <div class="mt-4 mb-5">
-    <a asp-action="Index" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Назад к списку
-    </a>
+    <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Index", "Templates"),
+    ButtonText = "Назад к списку",
+    PreserveQuery = true
+}' />
+
 </div>

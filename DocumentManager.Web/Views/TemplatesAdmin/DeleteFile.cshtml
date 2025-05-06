@@ -36,9 +36,12 @@
                 <button type="submit" class="btn btn-danger px-4">
                     <i class="bi bi-trash"></i> Удалить
                 </button>
-                <a asp-action="Files" class="btn btn-secondary px-4">
-                    <i class="bi bi-x"></i> Отмена
-                </a>
+                <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Files", "TemplatesAdmin"),
+    ButtonText = "Отмена",
+    ButtonClass = "btn btn-secondary px-4",
+    Icon = "bi-x"
+}' />
             </div>
         </form>
     </div>

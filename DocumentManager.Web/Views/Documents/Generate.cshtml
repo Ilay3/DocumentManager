@@ -34,9 +34,12 @@
             <a id="download-all-btn" href="@Url.Action("DownloadAll", new { id = Model.DocumentId })" class="btn btn-success btn-lg d-none ms-2">
                 <i class="bi bi-file-earmark-zip"></i> Скачать пакетом
             </a>
-            <a id="back-btn" href="@Url.Action("Details", new { id = Model.DocumentId })" class="btn btn-secondary btn-lg ms-2">
-                <i class="bi bi-arrow-left"></i> Вернуться к документу
-            </a>
+            <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Details", "Documents", new { id = Model.DocumentId }),
+    ButtonText = "Вернуться к документу",
+    ButtonClass = "btn btn-secondary btn-lg ms-2"
+}' />
+
         </div>
     </div>
 </div>

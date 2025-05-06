@@ -1,0 +1,16 @@
+﻿@model BackButtonModel
+
+@{
+    // Значения по умолчанию
+    var fallbackUrl = Model?.FallbackUrl ?? ViewData["FallbackUrl"] as string ?? "/";
+    var buttonText = Model?.ButtonText ?? ViewData["ButtonText"] as string ?? "Назад";
+    var buttonClass = Model?.ButtonClass ?? ViewData["ButtonClass"] as string ?? "btn btn-outline-secondary";
+    var icon = Model?.Icon ?? ViewData["Icon"] as string ?? "bi-arrow-left";
+    var preserveQuery = Model?.PreserveQuery ?? (ViewData["PreserveQuery"] != null && (bool)ViewData["PreserveQuery"]);
+}
+
+<button type="button" class="@buttonClass back-button"
+        data-fallback-url="@fallbackUrl"
+        data-preserve-query="@preserveQuery.ToString().ToLower()">
+    <i class="bi @icon me-1"></i> @buttonText
+</button>

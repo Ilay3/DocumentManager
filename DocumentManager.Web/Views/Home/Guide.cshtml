@@ -1,0 +1,761 @@
+﻿@{
+    ViewData["Title"] = "Руководство пользователя";
+}
+
+<style>
+    /* Основные стили руководства */
+    .guide-header {
+        background: linear-gradient(135deg, #2b5797 0%, #3a7bd5 100%);
+        border-radius: 12px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(43, 87, 151, 0.2);
+    }
+
+    .guide-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 300px;
+        background-image: url("data:image/svg+xml,%3Csvg width='300' height='300' viewBox='0 0 300 300' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='150' cy='150' r='100' stroke='rgba(255,255,255,0.1)' stroke-width='50'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        opacity: 0.5;
+    }
+
+    .guide-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    .guide-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        max-width: 700px;
+    }
+
+    /* Навигация по разделам */
+    .guide-nav {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+
+    .guide-nav-item {
+        flex: 1 1 200px;
+        background-color: white;
+        padding: 1.25rem;
+        border-radius: 10px;
+        text-decoration: none;
+        color: #333;
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .guide-nav-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        color: #2b5797;
+    }
+
+    .guide-nav-icon {
+        font-size: 2rem;
+        color: #2b5797;
+        margin-bottom: 0.75rem;
+    }
+
+    .guide-nav-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .guide-nav-desc {
+        font-size: 0.85rem;
+        color: #6c757d;
+        line-height: 1.4;
+    }
+
+    /* Секции */
+    .guide-section {
+        background-color: white;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        padding: 2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    .guide-section-title {
+        color: #2b5797;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        position: relative;
+        font-weight: 700;
+    }
+
+    .guide-section-title::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 60px;
+        height: 3px;
+        background: linear-gradient(90deg, #2b5797, #3a7bd5);
+        border-radius: 3px;
+    }
+
+    /* Шаги инструкций */
+    .guide-steps {
+        counter-reset: step-counter;
+    }
+
+    .guide-step {
+        position: relative;
+        padding-left: 70px;
+        margin-bottom: 2rem;
+        min-height: 50px;
+    }
+
+    .guide-step::before {
+        counter-increment: step-counter;
+        content: counter(step-counter);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 50px;
+        height: 50px;
+        background-color: #3a7bd5;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        font-weight: bold;
+        box-shadow: 0 4px 8px rgba(58, 123, 213, 0.2);
+    }
+
+    .guide-step-title {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2b5797;
+    }
+
+    .guide-step-desc {
+        color: #555;
+        margin-bottom: 1rem;
+    }
+
+    .guide-image {
+        display: block;
+        max-width: 100%;
+        border-radius: 8px;
+        border: 1px solid #e5e5e5;
+        margin: 1.5rem 0;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .guide-tip {
+        background-color: rgba(58, 123, 213, 0.1);
+        border-left: 4px solid #3a7bd5;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+
+    .guide-warning {
+        background-color: rgba(255, 193, 7, 0.1);
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+
+    /* Справочные таблицы */
+    .guide-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 1.5rem 0;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .guide-table th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        text-align: left;
+        padding: 12px 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .guide-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .guide-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .guide-table tr:hover td {
+        background-color: #f8f9fa;
+    }
+
+    /* Карточки примеров */
+    .guide-examples {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin: 1.5rem 0;
+    }
+
+    .guide-example-card {
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e9ecef;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .guide-example-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .guide-example-img {
+        width: 100%;
+        height: 180px;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .guide-example-content {
+        padding: 1.25rem;
+    }
+
+    .guide-example-title {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #2b5797;
+    }
+
+    .guide-example-desc {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    /* Анимации */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-fadeInUp {
+        animation: fadeInUp 0.5s ease-out;
+    }
+
+    /* Адаптивность для мобильных устройств */
+    @@media (max-width: 768px) {
+        .guide-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .guide-title {
+            font-size: 1.75rem;
+        }
+
+        .guide-nav {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .guide-nav-item {
+            flex: 1 1 auto;
+        }
+
+        .guide-step {
+            padding-left: 60px;
+        }
+
+        .guide-section {
+            padding: 1.5rem;
+        }
+    }
+</style>
+
+<div class="guide-header">
+    <div class="container">
+        <h1 class="guide-title">Руководство пользователя</h1>
+        <p class="guide-subtitle">Добро пожаловать в Систему управления документами! Здесь вы найдете всю необходимую информацию для эффективной работы с шаблонами и документами.</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Навигация по разделам -->
+    <div class="guide-nav">
+        <a href="#getting-started" class="guide-nav-item">
+            <div class="guide-nav-icon">
+                <i class="bi bi-play-circle"></i>
+            </div>
+            <div class="guide-nav-title">Начало работы</div>
+            <div class="guide-nav-desc">Основы работы с системой и авторизация</div>
+        </a>
+
+        <a href="#templates" class="guide-nav-item">
+            <div class="guide-nav-icon">
+                <i class="bi bi-file-earmark-ruled"></i>
+            </div>
+            <div class="guide-nav-title">Шаблоны документов</div>
+            <div class="guide-nav-desc">Просмотр и управление шаблонами</div>
+        </a>
+
+        <a href="#documents" class="guide-nav-item">
+            <div class="guide-nav-icon">
+                <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <div class="guide-nav-title">Работа с документами</div>
+            <div class="guide-nav-desc">Создание и управление документами</div>
+        </a>
+
+        <a href="#admin" class="guide-nav-item">
+            <div class="guide-nav-icon">
+                <i class="bi bi-gear"></i>
+            </div>
+            <div class="guide-nav-title">Администрирование</div>
+            <div class="guide-nav-desc">Управление шаблонами и файлами</div>
+        </a>
+    </div>
+
+    <!-- Раздел 1: Начало работы -->
+    <div id="getting-started" class="guide-section animate-fadeInUp">
+        <h2 class="guide-section-title">Начало работы</h2>
+
+        <div class="guide-steps">
+            <div class="guide-step">
+                <h3 class="guide-step-title">Вход в систему</h3>
+                <p class="guide-step-desc">Для начала работы с системой необходимо войти, указав свое полное имя. Система запомнит ваше имя и будет использовать его при создании документов.</p>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Система использует простую авторизацию по имени.
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Главная страница и навигация</h3>
+                <p class="guide-step-desc">После входа вы попадаете на главную страницу системы. В левой части экрана расположено меню навигации, которое позволяет переходить между основными разделами:</p>
+
+                <ul class="list-group mb-3">
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-house text-primary me-3 fs-5"></i>
+                        <div>
+                            <strong>Главная</strong> — обзор системы и доступ к основным функциям
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-file-earmark-text text-primary me-3 fs-5"></i>
+                        <div>
+                            <strong>Документы</strong> — список всех созданных документов, их создание и управление
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-file-earmark-ruled text-primary me-3 fs-5"></i>
+                        <div>
+                            <strong>Шаблоны</strong> — просмотр доступных шаблонов документов
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-gear text-primary me-3 fs-5"></i>
+                        <div>
+                            <strong>Управление шаблонами</strong> — административный раздел для управления шаблонами
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Раздел 2: Шаблоны документов -->
+    <div id="templates" class="guide-section animate-fadeInUp">
+        <h2 class="guide-section-title">Шаблоны документов</h2>
+
+        <div class="guide-steps">
+            <div class="guide-step">
+                <h3 class="guide-step-title">Просмотр шаблонов</h3>
+                <p class="guide-step-desc">В разделе «Шаблоны» отображаются все доступные шаблоны документов, сгруппированные по категориям. Вы можете переключаться между категориями с помощью вкладок:</p>
+
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="bi bi-journal-bookmark me-1"></i> Паспорта</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="bi bi-box-seam me-1"></i> Упаковочные листы</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="bi bi-clipboard-check me-1"></i> Упаковочные ведомости</a>
+                    </li>
+                </ul>
+
+                <p>В каждой категории представлены карточки шаблонов с основной информацией:</p>
+                <ul>
+                    <li>Название шаблона</li>
+                    <li>Код шаблона</li>
+                    <li>Тип документа</li>
+                    <li>Статус (активный/неактивный)</li>
+                </ul>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Подробности шаблона</h3>
+                <p class="guide-step-desc">Для просмотра подробной информации о шаблоне нажмите кнопку «Подробности» на карточке шаблона. В открывшейся странице будет отображена следующая информация:</p>
+
+                <ul>
+                    <li><strong>Основная информация</strong> — код, название и тип шаблона</li>
+                    <li><strong>Поля шаблона</strong> — список всех полей, которые содержатся в шаблоне, с указанием типа поля и обязательности заполнения</li>
+                </ul>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> На странице подробностей шаблона также есть кнопка для создания нового документа на основе этого шаблона.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Раздел 3: Работа с документами -->
+    <div id="documents" class="guide-section animate-fadeInUp">
+        <h2 class="guide-section-title">Работа с документами</h2>
+
+        <div class="guide-steps">
+            <div class="guide-step">
+                <h3 class="guide-step-title">Создание нового документа</h3>
+                <p class="guide-step-desc">Для создания нового документа есть несколько способов:</p>
+
+                <ol>
+                    <li>Нажать кнопку «Создать документ» в верхней части страницы «Документы»</li>
+                    <li>Нажать кнопку «Создать» на карточке шаблона в разделе «Шаблоны»</li>
+                    <li>Нажать кнопку «Создать документ» на странице подробностей шаблона</li>
+                </ol>
+
+                <p>После выбора шаблона (если вы начали с раздела «Документы») откроется форма создания документа, где необходимо заполнить все обязательные поля.</p>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Поля, отмеченные звездочкой (*), являются обязательными для заполнения.
+                </div>
+
+                <div class="guide-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Внимание:</strong> Заводской номер должен быть уникальным для каждого типа документа. Если вы пытаетесь создать документ с уже существующим заводским номером, система предложит вам подтвердить создание дубликата.
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Связанные документы</h3>
+                <p class="guide-step-desc">При создании документа вы можете одновременно создать связанные документы (например, упаковочные листы для паспорта). Для этого выберите нужные шаблоны в правой части формы создания документа.</p>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Все связанные документы будут созданы с тем же заводским номером, что и основной документ.
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Генерация документов</h3>
+                <p class="guide-step-desc">После создания документа необходимо сгенерировать его на основе шаблона. Для этого:</p>
+
+                <ol>
+                    <li>Нажмите кнопку «Сгенерировать» на странице документа или в списке документов</li>
+                    <li>Дождитесь завершения процесса генерации (отображается прогресс-бар)</li>
+                    <li>После успешной генерации вы можете скачать документ или пакет документов (если есть связанные документы)</li>
+                </ol>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Вы можете сгенерировать все связанные документы одновременно, нажав кнопку «Сгенерировать» для основного документа.
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Просмотр и управление документами</h3>
+                <p class="guide-step-desc">В разделе «Документы» отображается список всех созданных документов. Вы можете:</p>
+
+                <ul>
+                    <li><strong>Фильтровать</strong> документы по заводскому номеру, типу документа, дате создания</li>
+                    <li><strong>Искать</strong> документы по тексту</li>
+                    <li><strong>Переключать режим отображения</strong> между списком и сеткой</li>
+                    <li><strong>Просматривать детали</strong> документа, нажав на кнопку «Подробно»</li>
+                    <li><strong>Скачивать</strong> сгенерированные документы</li>
+                    <li><strong>Удалять</strong> документы</li>
+                </ul>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Для быстрого просмотра информации о документе без перехода на отдельную страницу, нажмите кнопку с иконкой информации (<i class="bi bi-info-circle"></i>). Откроется боковая панель с основной информацией о документе.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Раздел 4: Администрирование -->
+    <div id="admin" class="guide-section animate-fadeInUp">
+        <h2 class="guide-section-title">Администрирование</h2>
+
+        <div class="guide-steps">
+            <div class="guide-step">
+                <h3 class="guide-step-title">Управление шаблонами</h3>
+                <p class="guide-step-desc">В разделе «Управление шаблонами» вы можете:</p>
+
+                <ul>
+                    <li><strong>Фильтровать и искать</strong> шаблоны по названию, коду и типу</li>
+                    <li><strong>Активировать/деактивировать</strong> шаблоны</li>
+                    <li><strong>Просматривать связанные</strong> шаблоны</li>
+                    <li><strong>Проверять</strong> корректность шаблонов</li>
+                    <li><strong>Предпросматривать</strong> генерацию документов</li>
+                </ul>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Синхронизация шаблонов</h3>
+                <p class="guide-step-desc">Шаблоны документов хранятся в файловой системе в виде шаблонов Word и JSON-схем. Для обновления списка шаблонов в системе после изменения файлов используется функция синхронизации:</p>
+
+                <ol>
+                    <li>Нажмите кнопку «Синхронизировать шаблоны» в верхней части страницы «Управление шаблонами»</li>
+                    <li>Система проверит файлы шаблонов и обновит информацию в базе данных</li>
+                    <li>После синхронизации вы увидите сообщение с результатами (добавлено, обновлено, деактивировано шаблонов)</li>
+                </ol>
+
+                <div class="guide-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Внимание:</strong> Шаблоны, файлы которых были удалены из файловой системы, будут автоматически деактивированы.
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Управление файлами шаблонов</h3>
+                <p class="guide-step-desc">В разделе «Файлы шаблонов» вы можете управлять исходными файлами шаблонов:</p>
+
+                <ul>
+                    <li><strong>Загружать</strong> новые шаблоны Word и JSON-схемы</li>
+                    <li><strong>Просматривать и редактировать</strong> содержимое JSON-схем</li>
+                    <li><strong>Удалять</strong> файлы шаблонов</li>
+                </ul>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> При удалении файла создается резервная копия с расширением .bak. Это позволяет восстановить файл в случае ошибки.
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <h3 class="guide-step-title">Проверка корректности шаблонов</h3>
+                <p class="guide-step-desc">Функция проверки шаблонов позволяет выявить несоответствия между шаблоном Word и JSON-схемой:</p>
+
+                <ol>
+                    <li>Нажмите кнопку «Проверить шаблон» в контекстном меню шаблона</li>
+                    <li>Система проверит наличие файла шаблона, плейсхолдеры в шаблоне и поля в JSON-схеме</li>
+                    <li>Результаты проверки будут отображены на странице с указанием проблем и рекомендаций по их устранению</li>
+                </ol>
+
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Регулярно проверяйте шаблоны на корректность, особенно после внесения изменений в файлы шаблонов.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Справочник по формату шаблонов -->
+    <div class="guide-section animate-fadeInUp">
+        <h2 class="guide-section-title">Справочник</h2>
+
+        <h3 class="mt-4 mb-3">Типы документов</h3>
+        <div class="table-responsive">
+            <table class="guide-table">
+                <thead>
+                    <tr>
+                        <th>Тип</th>
+                        <th>Описание</th>
+                        <th>Связи</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge bg-primary">Паспорт</span></td>
+                        <td>Паспорт устройства с техническими характеристиками и информацией о настройках</td>
+                        <td>Может быть связан с упаковочными листами и упаковочными ведомостями</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge bg-success">Упаковочный лист</span></td>
+                        <td>Упаковочный лист с перечнем комплектующих и аксессуаров</td>
+                        <td>Может быть связан с паспортом</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge bg-info">Упаковочная ведомость</span></td>
+                        <td>Сводная упаковочная ведомость для регистрации и учета поставок</td>
+                        <td>Может быть связан с паспортом</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 class="mt-4 mb-3">Типы полей шаблонов</h3>
+        <div class="table-responsive">
+            <table class="guide-table">
+                <thead>
+                    <tr>
+                        <th>Тип</th>
+                        <th>Описание</th>
+                        <th>Пример плейсхолдера</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge bg-primary">Текст</span></td>
+                        <td>Текстовое поле для ввода произвольного текста</td>
+                        <td><code>{{FactoryNumber}}</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge bg-success">Дата</span></td>
+                        <td>Поле для ввода даты с календарем</td>
+                        <td><code>{{PackagingDate}}</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge bg-info">Список</span></td>
+                        <td>Поле с выбором значения из предопределенного списка</td>
+                        <td><code>{{DeviceType}}</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 class="mt-4 mb-3">Формат плейсхолдеров в шаблонах Word</h3>
+        <p>В шаблонах Word поддерживаются следующие форматы плейсхолдеров:</p>
+        <ul>
+            <li><code>{{ИмяПоля}}</code> — основной формат</li>
+            <li><code>&lt;&lt;ИмяПоля&gt;&gt;</code> — альтернативный формат</li>
+            <li><code>[ИмяПоля]</code> — альтернативный формат</li>
+            <li><code>$ИмяПоля</code> — альтернативный формат</li>
+        </ul>
+    </div>
+
+    <!-- Часто задаваемые вопросы -->
+    <div class="guide-section animate-fadeInUp">
+        <h2 class="guide-section-title">Часто задаваемые вопросы</h2>
+
+        <div class="accordion" id="faqAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        Как добавить новый шаблон в систему?
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <p>Для добавления нового шаблона необходимо:</p>
+                        <ol>
+                            <li>Создать шаблон документа Word с плейсхолдерами в формате <code>{{ИмяПоля}}</code></li>
+                            <li>Создать JSON-схему с описанием полей шаблона</li>
+                            <li>Загрузить файлы шаблона Word и JSON-схемы в соответствующие директории через раздел «Файлы шаблонов»</li>
+                            <li>Выполнить синхронизацию шаблонов</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingTwo">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        Как исправить ошибку при генерации документа?
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <p>Ошибки при генерации документа могут возникать по следующим причинам:</p>
+                        <ul>
+                            <li><strong>Отсутствие шаблона Word</strong> — проверьте наличие файла шаблона по указанному пути</li>
+                            <li><strong>Несоответствие полей в шаблоне и JSON-схеме</strong> — используйте функцию проверки шаблона для выявления несоответствий</li>
+                            <li><strong>Неверный формат данных</strong> — проверьте, что значения полей соответствуют их типам (например, для полей с датой указана корректная дата)</li>
+                        </ul>
+                        <p>Для более детального анализа ошибки обратитесь к логам системы.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingThree">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                        Можно ли создать документ с уже существующим заводским номером?
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <p>Да, система позволяет создавать документы с уже существующими заводскими номерами (дубликаты). При попытке создать документ с существующим заводским номером система отобразит предупреждение и предложит подтвердить создание дубликата.</p>
+                        <p>После подтверждения будет создан документ, в заводском номере которого будет добавлена пометка «Дубликат» и дата/время создания:</p>
+                        <code>ОРИГИНАЛЬНЫЙ_НОМЕР (Дубликат 01.01.2024 12:34)</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Плавная прокрутка к разделам
+            $('a[href^="#"]').on('click', function(e) {
+                e.preventDefault();
+
+                var target = $(this.hash);
+                if (target.length) {
+                    $('html, body').animate({
+                        scrollTop: target.offset().top - 70
+                    }, 500);
+                }
+            });
+
+            // Анимация секций при прокрутке
+            function animateSections() {
+                $('.guide-section').each(function() {
+                    var position = $(this).offset().top;
+                    var scroll = $(window).scrollTop();
+                    var windowHeight = $(window).height();
+
+                    if (scroll + windowHeight > position + 100) {
+                        $(this).addClass('animate-fadeInUp');
+                    }
+                });
+            }
+
+            // Вызываем один раз при загрузке страницы
+            animateSections();
+
+            // И затем при прокрутке
+            $(window).scroll(function() {
+                animateSections();
+            });
+        });
+    </script>
+}

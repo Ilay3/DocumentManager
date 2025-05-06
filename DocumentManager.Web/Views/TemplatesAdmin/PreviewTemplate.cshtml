@@ -1,0 +1,228 @@
+﻿@model DocumentManager.Web.Models.TemplatePreviewViewModel
+
+@{
+    ViewData["Title"] = "Предпросмотр шаблона";
+}
+
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h1 class="display-6 mb-0">
+            <i class="bi bi-eye text-primary me-2"></i> Предпросмотр шаблона
+        </h1>
+        <p class="text-muted mt-2">@Model.TemplateName</p>
+    </div>
+    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Index", "TemplatesAdmin"),
+    ButtonText = "Назад к списку",
+    PreserveQuery = true
+}' />
+
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pencil-square text-primary me-2"></i> Тестовые значения
+                </h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="GenerateTestDocument" method="post">
+                    <input type="hidden" name="templateId" value="@Model.TemplateId" />
+
+                    @foreach (var field in Model.Fields)
+                    {
+                        <div class="mb-3">
+                            <label for="@field.FieldName" class="form-label">
+                                @field.FieldLabel
+                                @if (field.IsRequired)
+                                {
+                                    <span class="text-danger">*</span>
+                                }
+                            </label>
+
+                            @if (field.FieldType == "select" && field.Options != null && field.Options.Any())
+                            {
+                                <select id="@field.FieldName" name="fieldValues[@field.FieldName]" class="form-select">
+                                    @foreach (var option in field.Options)
+                                    {
+                                        <option value="@option" selected="@(option == field.Value)">@option</option>
+                                    }
+                                </select>
+                            }
+                            else if (field.FieldType == "date")
+                            {
+                                <input type="date" id="@field.FieldName" name="fieldValues[@field.FieldName]"
+                                       class="form-control" value="@field.Value" />
+                            }
+                            else
+                            {
+                                <input type="text" id="@field.FieldName" name="fieldValues[@field.FieldName]"
+                                       class="form-control" value="@field.Value" />
+                            }
+
+                            @if (field.IsUnique)
+                            {
+                                <div class="form-text small text-primary">Уникальное поле</div>
+                            }
+                        </div>
+                    }
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-file-earmark-word"></i> Сгенерировать тестовый документ
+                        </button>
+                        <button type="button" id="randomizeValues" class="btn btn-outline-secondary">
+                            <i class="bi bi-shuffle"></i> Случайные значения
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-earmark-text text-primary me-2"></i> Информация о шаблоне
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="text-muted d-block">Код шаблона</label>
+                            <div class="fw-bold">@Model.TemplateCode</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="text-muted d-block">Тип документа</label>
+                            <div>
+                                @{
+                                    string badgeClass = "bg-secondary";
+                                    string displayType = Model.TemplateType;
+
+                                    if (Model.TemplateType == "Passport")
+                                    {
+                                        badgeClass = "bg-primary";
+                                        displayType = "Паспорт";
+                                    }
+                                    else if (Model.TemplateType == "PackingList")
+                                    {
+                                        badgeClass = "bg-success";
+                                        displayType = "Упаковочный лист";
+                                    }
+                                    else if (Model.TemplateType == "PackingInventory")
+                                    {
+                                        badgeClass = "bg-info";
+                                        displayType = "Упаковочная ведомость";
+                                    }
+                                }
+                                <span class="badge @badgeClass">@displayType</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-muted d-block">Путь к шаблону Word</label>
+                    <div class="small text-break">@Model.WordTemplatePath</div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <span>Для генерации тестового документа заполните значения полей слева и нажмите кнопку "Сгенерировать тестовый документ".</span>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header bg-light">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-braces me-2"></i> Плейсхолдеры в шаблоне
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">Ниже представлены значения, которые будут подставлены в шаблон:</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Плейсхолдер</th>
+                                        <th>Значение</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var value in Model.TestValues)
+                                    {
+                                        <tr>
+                                            <td><code>{{@value.Key}}</code></td>
+                                            <td>@value.Value</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Функция для генерации случайных значений
+        $(document).ready(function() {
+            // Обработчик кнопки "Случайные значения"
+            $('#randomizeValues').click(function() {
+                // Генерируем случайные значения для каждого поля
+                $('input[type="text"]').each(function() {
+                    const fieldName = $(this).attr('id');
+
+                    // Для заводского номера
+                    if (fieldName.toLowerCase().includes('factorynumber')) {
+                        $(this).val('TEST-' + Math.floor(Math.random() * 900000 + 100000));
+                    }
+                    // Для серийных номеров
+                    else if (fieldName.toLowerCase().includes('number') || fieldName.toLowerCase().includes('serial')) {
+                        $(this).val('SN-' + Math.floor(Math.random() * 900000 + 100000));
+                    }
+                    // Для других полей
+                    else {
+                        $(this).val('Тестовое значение ' + Math.floor(Math.random() * 9999));
+                    }
+                });
+
+                // Для полей с датами
+                $('input[type="date"]').each(function() {
+                    // Генерируем случайную дату за последние 30 дней
+                    const today = new Date();
+                    const randomDays = Math.floor(Math.random() * 30);
+                    const randomDate = new Date(today.getTime() - randomDays * 24 * 60 * 60 * 1000);
+
+                    // Форматируем дату в формате YYYY-MM-DD
+                    const year = randomDate.getFullYear();
+                    const month = (randomDate.getMonth() + 1).toString().padStart(2, '0');
+                    const day = randomDate.getDate().toString().padStart(2, '0');
+
+                    $(this).val(`${year}-${month}-${day}`);
+                });
+
+                // Для списков выбираем случайный элемент
+                $('select').each(function() {
+                    const options = $(this).find('option');
+                    if (options.length > 1) {
+                        // Не выбираем первый элемент, если он пустой
+                        const startIndex = options.first().val() === '' ? 1 : 0;
+                        const randomIndex = Math.floor(Math.random() * (options.length - startIndex)) + startIndex;
+                        $(this).val(options.eq(randomIndex).val());
+                    }
+                });
+            });
+        });
+    </script>
+}
