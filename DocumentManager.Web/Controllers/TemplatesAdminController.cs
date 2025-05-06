@@ -5,12 +5,9 @@ using DocumentManager.Infrastructure.Services;
 using DocumentManager.Web.Helpers;
 using DocumentManager.Web.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System;
-using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using DocumentFormat.OpenXml.Packaging;
+
 
 namespace DocumentManager.Web.Controllers
 {
@@ -197,9 +194,9 @@ namespace DocumentManager.Web.Controllers
                     {
                         try
                         {
-                            using (var doc = Xceed.Words.NET.DocX.Load(wordTemplatePath))
+                            using (WordprocessingDocument doc = WordprocessingDocument.Open(wordTemplatePath, false))
                             {
-                                string text = doc.Text;
+                                string text = doc.MainDocumentPart.Document.Body.InnerText;
                                 var matches = Regex.Matches(text, @"\{\{([^}]+)\}\}");
                                 foreach (Match match in matches)
                                 {
@@ -209,6 +206,7 @@ namespace DocumentManager.Web.Controllers
                                     }
                                 }
                             }
+
                         }
                         catch (Exception ex)
                         {

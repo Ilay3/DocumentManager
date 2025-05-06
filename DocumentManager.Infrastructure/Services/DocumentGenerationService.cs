@@ -1,4 +1,7 @@
-﻿using DocumentManager.Core.Interfaces;
+﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using DocumentManager.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -7,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Xceed.Words.NET;
+
 
 namespace DocumentManager.Infrastructure.Services
 {
@@ -132,52 +135,56 @@ namespace DocumentManager.Infrastructure.Services
                 _logger.LogInformation($"[ProcessDocx] Копируем шаблон {templatePath} → {tempPath}");
                 File.Copy(templatePath, tempPath, overwrite: true);
 
-                using (var doc = DocX.Load(tempPath))
+                // Используем OpenXML для работы с документом
+                using (WordprocessingDocument doc = WordprocessingDocument.Open(tempPath, true))
                 {
+                    MainDocumentPart mainPart = doc.MainDocumentPart;
+                    Document document = mainPart.Document;
+                    Body body = document.Body;
+
                     // Краткий превью текста
-                    var preview = doc.Text.Length > 200
-                        ? doc.Text.Substring(0, 200)
-                        : doc.Text;
-                    _logger.LogInformation($"[ProcessDocx] Текст документа (первые 200 символов):\n{preview}");
+                    string preview = body.InnerText.Length > 200
+                        ? body.InnerText.Substring(0, 200)
+                        : body.InnerText;
+                    _logger.LogInformation($"[ProcessDocx] Текст документа (первые 200 символов):\n{preview}");
 
                     int totalReplacements = 0;
 
                     foreach (var kv in fieldValues)
                     {
-                        var name = kv.Key;
-                        var value = kv.Value ?? "";
+                        string name = kv.Key;
+                        string value = kv.Value ?? "";
 
                         // Четыре формата плейсхолдеров
                         var placeholders = new[]
                         {
                     "{{" + name + "}}",
                     "<<" + name + ">>",
-                    "["  + name + "]",
-                    "$"  + name
+                    "[" + name + "]",
+                    "$" + name
                 };
 
-                        foreach (var ph in placeholders)
+                        foreach (var placeholder in placeholders)
                         {
-                            // Считаем, сколько раз реально встречается в документе
-                            var pattern = System.Text.RegularExpressions.Regex.Escape(ph);
-                            int count = System.Text.RegularExpressions.Regex.Matches(doc.Text, pattern).Count;
-                            if (count > 0)
+                            // Заменяем текст во всем документе
+                            int replacements = ReplaceTextInDocument(body, placeholder, value);
+                            totalReplacements += replacements;
+
+                            if (replacements > 0)
                             {
-                                // Заменяем все вхождения
-                                doc.ReplaceText(ph, value, false, System.Text.RegularExpressions.RegexOptions.None);
-                                totalReplacements += count;
-                                _logger.LogInformation($"[ProcessDocx] Заменено {count}× «{ph}» → «{value}»");
+                                _logger.LogInformation($"[ProcessDocx] Заменено {replacements}× «{placeholder}» → «{value}»");
                             }
                         }
                     }
 
                     _logger.LogInformation($"[ProcessDocx] Всего заменено: {totalReplacements}. Сохраняем документ.");
-                    doc.Save();
+                    // Сохраняем изменения
+                    document.Save();
                 }
 
                 _logger.LogInformation("[ProcessDocx] Чтение обработанного файла");
                 var result = await File.ReadAllBytesAsync(tempPath);
-                _logger.LogInformation($"[ProcessDocx] Возвращаем документ размером {result.Length} байт");
+                _logger.LogInformation($"[ProcessDocx] Возвращаем документ размером {result.Length} байт");
                 return result;
             }
             catch (Exception ex)
@@ -202,8 +209,70 @@ namespace DocumentManager.Infrastructure.Services
             }
         }
 
+        // Вспомогательный метод для замены текста в документе
+        private int ReplaceTextInDocument(OpenXmlElement element, string search, string replace)
+        {
+            int count = 0;
 
+            // Перебираем все текстовые элементы
+            foreach (var text in element.Descendants<Text>())
+            {
+                if (text.Text.Contains(search))
+                {
+                    string newText = text.Text.Replace(search, replace);
+                    text.Text = newText;
+                    count++;
+                }
+            }
 
+            // Проверяем на случай, если плейсхолдер разбит на несколько текстовых узлов
+            if (count == 0 && search.Length > 1)
+            {
+                // Получаем все параграфы
+                var paragraphs = element.Descendants<Paragraph>();
+
+                foreach (var paragraph in paragraphs)
+                {
+                    string paraText = paragraph.InnerText;
+                    if (paraText.Contains(search))
+                    {
+                        // Если плейсхолдер найден в параграфе, но не найден в отдельных текстовых узлах
+                        // значит он разбит между узлами
+                        var runs = paragraph.Descendants<Run>().ToList();
+
+                        // Объединяем текст из всех пробегов (runs)
+                        StringBuilder combinedText = new StringBuilder();
+                        foreach (var run in runs)
+                        {
+                            foreach (var text in run.Descendants<Text>())
+                            {
+                                combinedText.Append(text.Text);
+                            }
+                        }
+
+                        string fullText = combinedText.ToString();
+
+                        // Если плейсхолдер найден в полном тексте параграфа
+                        if (fullText.Contains(search))
+                        {
+                            // Заменяем текст
+                            string newText = fullText.Replace(search, replace);
+
+                            // Создаем новый пробег с замененным текстом
+                            Run newRun = new Run(new Text(newText));
+
+                            // Очищаем параграф и добавляем новый пробег
+                            paragraph.RemoveAllChildren<Run>();
+                            paragraph.AppendChild(newRun);
+
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            return count;
+        }
 
         public async Task<IEnumerable<(int DocumentId, string FilePath, byte[] Content)>> GenerateRelatedDocumentsAsync(int documentId)
         {
