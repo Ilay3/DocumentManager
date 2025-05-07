@@ -1,134 +1,799 @@
-﻿@model DocumentManager.Web.Models.GenerateJsonSchemaViewModel
-@using System.IO;
+﻿<!-- DocumentManager.Web/Views/TemplatesAdmin/GenerateJsonSchema.cshtml -->
 @{
     ViewData["Title"] = "Генерация JSON-схем";
 }
+
+<style>
+    /* Стили для древовидной структуры */
+    .directory-tree {
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        background-color: #f8f9fa;
+    }
+    
+    .directory-list {
+        list-style-type: none;
+        padding-left: 15px;
+        margin-bottom: 0;
+    }
+    
+    .directory-list > li {
+        padding: 5px 0;
+    }
+    
+    .directory-name, .file-name {
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+    }
+    
+    .directory-name:hover, .file-name:hover {
+        background-color: #e9ecef;
+    }
+    
+    .subdirectory-container {
+        margin-left: 15px;
+    }
+    
+    .expand-icon {
+        margin-left: auto;
+        transition: transform 0.2s;
+    }
+    
+    .selected-item {
+        background-color: #e2f0ff;
+    }
+    
+    .has-json .file-name .badge {
+        background-color: #198754;
+    }
+    
+    /* Анимации */
+    .fade-in {
+        animation: fadeIn 0.3s;
+    }
+    
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .template-checkbox {
+        cursor: pointer;
+        width: 2rem;
+        height: 1.2rem;
+    }
+    
+    .generation-progress {
+        display: none;
+        margin-top: 20px;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        bottom: 0;
+        background-color: white;
+        padding: 15px 0;
+        border-top: 1px solid #dee2e6;
+        margin-top: 20px;
+    }
+</style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Генерация JSON-схем из шаблонов Word</h1>
     <div>
         <partial name="_BackButton" model='new BackButtonModel {
-    FallbackUrl = Url.Action("Files", "TemplatesAdmin"),
-    ButtonText = "Назад к файлам"
-}' />
+            FallbackUrl = Url.Action("Files", "TemplatesAdmin"),
+            ButtonText = "Назад к файлам"
+        }' />
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
+<div class="row">
+    <!-- Левая панель с деревом директорий -->
+    <div class="col-md-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
                 <h5 class="card-title mb-0">
-                    <i class="bi bi-file-earmark-word"></i> Генерация JSON-схемы для одного файла
+                    <i class="bi bi-folder2"></i> Дерево директорий и шаблонов
                 </h5>
             </div>
             <div class="card-body">
-                <form asp-action="GenerateJsonSchema" method="post">
-                    <div class="form-group mb-3">
-                        <label for="wordTemplatePath" class="form-label">Выберите шаблон Word</label>
-                        <select id="wordTemplatePath" name="wordTemplatePath" class="form-select">
-                            <option value="">-- Выберите шаблон --</option>
-                            @foreach (var template in Model.WordTemplates)
-                            {
-                                <option value="@template.Path">@template.Path</option>
-                            }
-                        </select>
-                        <div class="form-text">Выберите шаблон Word для генерации JSON-схемы</div>
+                <!-- Строка поиска -->
+                <div class="input-group mb-3">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="templateSearch" class="form-control" 
+                           placeholder="Поиск шаблонов (минимум 3 символа)...">
+                    <button class="btn btn-outline-secondary" id="clearSearch" type="button">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-2">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="showOnlyMissing">
+                        <label class="form-check-label" for="showOnlyMissing">
+                            Показать только шаблоны без JSON-схем
+                        </label>
                     </div>
-                    <div class="form-group text-end">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-gear"></i> Сгенерировать JSON-схему
-                        </button>
+                </div>
+                
+                <!-- Дерево директорий -->
+                <div id="directoryTree" class="directory-tree">
+                    <div class="d-flex justify-content-center p-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
                     </div>
-                </form>
+                </div>
+                
+                <!-- Путь навигации -->
+                <div class="mt-3" id="breadcrumb-navigation">
+                    <button class="btn btn-sm btn-outline-secondary" id="goToRootBtn">
+                        <i class="bi bi-house"></i> Корневая директория
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-success text-white">
+    
+    <!-- Правая панель с выбранными файлами -->
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
                 <h5 class="card-title mb-0">
-                    <i class="bi bi-folder2"></i> Пакетная генерация JSON-схем для папки
+                    <i class="bi bi-lightning"></i> Выбранные шаблоны для генерации
                 </h5>
             </div>
             <div class="card-body">
-                <form asp-action="BatchGenerateJsonSchema" method="post">
-                    <div class="form-group mb-3">
-                        <label for="folderPath" class="form-label">Выберите папку с шаблонами</label>
-
-                        <select id="folderPath" name="folderPath" class="form-select">
-                            <option value="">-- Выберите папку --</option>
-
-                            @{
-                                // Получаем уникальные пути папок
-                                var folders = Model.WordTemplates
-                                .Select(t => System.IO.Path.GetDirectoryName(t.Path))
-                                .Where(p => !string.IsNullOrEmpty(p))
-                                .Distinct()
-                                .OrderBy(p => p)
-                                .ToList();
-
-                                foreach (var folder in folders)
-                                {
-                                    <option value="@folder">@folder</option>
-                                }
-                            }
-                        </select>
-                        <div class="form-text">Выберите папку с шаблонами Word для пакетной генерации JSON-схем</div>
+                <!-- Список выбранных шаблонов -->
+                <div id="selectedTemplates">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i> 
+                        Выберите шаблоны Word из дерева слева для генерации JSON-схем
                     </div>
-                    <div class="form-group text-end">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-lightning"></i> Пакетная генерация
+                </div>
+                
+                <!-- Прогресс генерации -->
+                <div class="generation-progress">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%" 
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="alert alert-info" id="generationStatus">
+                        Подготовка к генерации...
+                    </div>
+                </div>
+                
+                <!-- Кнопки действий -->
+                <div class="action-buttons d-flex justify-content-between">
+                    <button id="selectAllVisibleBtn" class="btn btn-outline-primary">
+                        <i class="bi bi-check-square"></i> Выбрать все видимые
+                    </button>
+                    <div>
+                        <button id="smartGenerationBtn" class="btn btn-success me-2">
+                            <i class="bi bi-magic"></i> <span class="d-none d-md-inline">Умная генерация</span>
+                        </button>
+                        <button id="generateSelectedBtn" class="btn btn-primary" disabled>
+                            <i class="bi bi-lightning"></i> <span class="d-none d-md-inline">Сгенерировать выбранные</span>
+                            <span id="selectedCount" class="badge bg-light text-dark ms-1">0</span>
                         </button>
                     </div>
-                </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Информационная панель -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle"></i> Информация о генерации JSON-схем
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Генерация JSON-схем работает следующим образом:</p>
+                <ol>
+                    <li>Анализируется шаблон Word и в нём находятся все плейсхолдеры (в форматах {{FieldName}}, &lt;&lt;FieldName&gt;&gt;, [FieldName], $FieldName)</li>
+                    <li>На основе найденных плейсхолдеров формируется JSON-схема с определениями полей</li>
+                    <li>JSON-схема сохраняется в соответствующей директории</li>
+                </ol>
+                
+                <div class="alert alert-primary mt-3">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Совет:</strong> Используйте функцию "Умная генерация" для автоматического поиска шаблонов Word, у которых отсутствуют JSON-схемы.
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-light">
-        <h5 class="card-title mb-0">
-            <i class="bi bi-info-circle"></i> Информация о генерации JSON-схем
-        </h5>
-    </div>
-    <div class="card-body">
-        <p>Данный инструмент позволяет автоматически сгенерировать JSON-схемы на основе шаблонов Word. Процесс работает следующим образом:</p>
-
-        <ol>
-            <li>Анализируется выбранный шаблон Word и в нём находятся все плейсхолдеры (в форматах {{FieldName}}, &lt;&lt;FieldName&gt;&gt;, [FieldName], $FieldName)</li>
-            <li>На основе найденных плейсхолдеров формируется JSON-схема с определениями полей</li>
-            <li>JSON-схема сохраняется в директории с тем же относительным путем, что и шаблон Word, но в папке Json вместо Word</li>
-        </ol>
-
-        <p>
-            Например, если выбран шаблон <code>Passport/ЭСУВТ.01-06-00 (Депо)/template.docx</code> из папки Word,
-            то JSON-схема будет сохранена в <code>Json/Passport/ЭСУВТ.01-06-00 (Депо)/template.json</code>.
-        </p>
-
-        <div class="alert alert-info">
-            <i class="bi bi-lightbulb"></i> Пакетная генерация позволяет обработать все файлы Word в выбранной папке за один шаг.
-        </div>
-    </div>
-</div>
+<!-- Форма для отправки выбранных файлов -->
+<form id="generateJsonForm" method="post" action="@Url.Action("GenerateJsonSchemaForFiles", "TemplatesAdmin")">
+    <input type="hidden" id="selectedFilesInput" name="filePaths" />
+</form>
 
 @section Scripts {
     <script>
         $(document).ready(function() {
-            // Фильтрация списка шаблонов Word
-            $('#templateSearch').on('input', function() {
-                var searchTerm = $(this).val().toLowerCase();
-                $('#wordTemplatePath option').each(function() {
-                    var path = $(this).text().toLowerCase();
-                    if (path === '' || path.includes(searchTerm)) {
-                        $(this).show();
+            // Текущий путь в дереве
+            let currentPath = "";
+            
+            // Выбранные файлы
+            const selectedFiles = new Set();
+            
+            // Загрузка основного дерева при загрузке страницы
+            loadDirectoryTree();
+            
+            // Загрузка директорий
+            function loadDirectoryTree(path = "") {
+                currentPath = path;
+                
+                $.get("@Url.Action("GetDirectoryTree", "TemplatesAdmin")", { basePath: path })
+                    .done(function(data) {
+                        renderDirectoryTree(data, path);
+                    })
+                    .fail(function(error) {
+                        showError("Ошибка при загрузке директорий: " + error.statusText);
+                    });
+            }
+            
+            // Отрисовка дерева
+            function renderDirectoryTree(data, basePath) {
+                const treeContainer = $("#directoryTree");
+                treeContainer.empty();
+                
+                // Если нет директорий и файлов
+                if (data.directories.length === 0 && data.files.length === 0) {
+                    treeContainer.html(`
+                        <div class="alert alert-info m-3">
+                            <i class="bi bi-info-circle me-2"></i> 
+                            В этой директории нет шаблонов Word
+                        </div>
+                    `);
+                    return;
+                }
+                
+                const list = $("<ul class='directory-list'></ul>");
+                
+                // Добавляем директории
+                data.directories.forEach(dir => {
+                    const dirItem = $(`
+                        <li class="directory-item" data-path="${dir.path}">
+                            <div class="directory-name">
+                                <i class="bi bi-folder2 me-2 text-warning"></i> 
+                                <span>${dir.name}</span>
+                                ${dir.hasSubdirectories ? 
+                                  '<i class="bi bi-chevron-right expand-icon"></i>' : ''}
+                            </div>
+                        </li>
+                    `);
+                    
+                    // Обработчик клика по директории
+                    dirItem.find('.directory-name').click(function() {
+                        const path = $(this).parent().data('path');
+                        loadDirectoryTree(path);
+                    });
+                    
+                    list.append(dirItem);
+                });
+                
+                // Добавляем файлы
+                data.files.forEach(file => {
+                    // Если включен режим "только без JSON" и у файла есть JSON, пропускаем
+                    if ($("#showOnlyMissing").is(":checked") && file.hasJsonSchema) {
+                        return;
+                    }
+                    
+                    const isSelected = selectedFiles.has(file.path);
+                    
+                    const fileItem = $(`
+                        <li class="file-item ${file.hasJsonSchema ? 'has-json' : ''}" 
+                            data-path="${file.path}">
+                            <div class="file-name ${isSelected ? 'selected-item' : ''}">
+                                <i class="bi bi-file-earmark-word me-2 text-primary"></i>
+                                <span>${file.name}</span>
+                                ${file.hasJsonSchema ? 
+                                  '<span class="badge bg-success ms-2">JSON</span>' : 
+                                  '<span class="badge bg-warning text-dark ms-2">Нет JSON</span>'}
+                                <div class="form-check form-switch ms-auto">
+                                    <input class="form-check-input template-checkbox" 
+                                          type="checkbox" data-path="${file.path}" 
+                                          ${isSelected ? 'checked' : ''}>
+                                </div>
+                            </div>
+                        </li>
+                    `);
+                    
+                    list.append(fileItem);
+                });
+                
+                treeContainer.append(list);
+                
+                // Обновляем путь навигации
+                updateBreadcrumb(basePath);
+                
+                // Обработчики для чекбоксов
+                $(".template-checkbox").change(function() {
+                    const path = $(this).data("path");
+                    
+                    if ($(this).is(":checked")) {
+                        selectedFiles.add(path);
+                        $(this).closest(".file-name").addClass("selected-item");
                     } else {
-                        $(this).hide();
+                        selectedFiles.delete(path);
+                        $(this).closest(".file-name").removeClass("selected-item");
+                    }
+                    
+                    updateSelectedTemplates();
+                });
+                
+                // Клик по имени файла также переключает чекбокс
+                $(".file-name").click(function(e) {
+                    // Если клик был не по чекбоксу
+                    if (!$(e.target).hasClass("template-checkbox")) {
+                        const checkbox = $(this).find(".template-checkbox");
+                        checkbox.prop("checked", !checkbox.prop("checked"));
+                        checkbox.trigger("change");
+                    }
+                });
+            }
+            
+            // Обновление хлебных крошек
+            function updateBreadcrumb(path) {
+                const breadcrumb = $("#breadcrumb-navigation");
+                breadcrumb.empty();
+                
+                // Если мы не в корне
+                if (path) {
+                    const parts = path.split('/');
+                    let currentPath = "";
+                    
+                    // Кнопка для корня
+                    breadcrumb.append(`
+                        <button class="btn btn-sm btn-outline-secondary me-2" data-path="">
+                            <i class="bi bi-house"></i>
+                        </button>
+                    `);
+                    
+                    // Добавляем элементы пути
+                    parts.forEach((part, index) => {
+                        if (index > 0) {
+                            currentPath += "/";
+                        }
+                        currentPath += part;
+                        
+                        breadcrumb.append(`
+                            <button class="btn btn-sm ${index === parts.length - 1 ? 'btn-primary' : 'btn-outline-secondary'} me-2" 
+                                    data-path="${currentPath}">
+                                ${part}
+                            </button>
+                        `);
+                    });
+                    
+                    // Обработчики для кнопок навигации
+                    breadcrumb.find("button").click(function() {
+                        const path = $(this).data("path");
+                        loadDirectoryTree(path);
+                    });
+                } else {
+                    // Кнопка корня активна
+                    breadcrumb.append(`
+                        <button class="btn btn-sm btn-primary" disabled>
+                            <i class="bi bi-house"></i> Корневая директория
+                        </button>
+                    `);
+                }
+            }
+            
+            // Обновление списка выбранных шаблонов
+            function updateSelectedTemplates() {
+                const selectedTemplatesContainer = $("#selectedTemplates");
+                const generateBtn = $("#generateSelectedBtn");
+                const selectedCount = $("#selectedCount");
+                
+                // Обновляем счетчик
+                const count = selectedFiles.size;
+                selectedCount.text(count);
+                
+                // Проверяем, есть ли выбранные файлы
+                if (count === 0) {
+                    selectedTemplatesContainer.html(`
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i> 
+                            Выберите шаблоны Word из дерева слева для генерации JSON-схем
+                        </div>
+                    `);
+                    generateBtn.prop("disabled", true);
+                } else {
+                    generateBtn.prop("disabled", false);
+                    
+                    // Создаем список выбранных шаблонов
+                    const selectedList = $(`
+                        <div class="list-group mb-3" id="selectedFilesList"></div>
+                    `);
+                    
+                    selectedFiles.forEach(filePath => {
+                        selectedList.append(`
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-file-earmark-word text-primary me-2"></i>
+                                    ${filePath}
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger remove-selected" 
+                                        data-path="${filePath}">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        `);
+                    });
+                    
+                    selectedTemplatesContainer.empty().append(selectedList);
+                    
+                    // Обработчик для удаления из списка выбранных
+                    $(".remove-selected").click(function() {
+                        const path = $(this).data("path");
+                        selectedFiles.delete(path);
+                        
+                        // Снимаем выделение с чекбокса, если он виден
+                        $(`.template-checkbox[data-path="${path}"]`).prop("checked", false)
+                            .closest(".file-name").removeClass("selected-item");
+                        
+                        updateSelectedTemplates();
+                    });
+                }
+                
+                // Обновляем скрытое поле формы
+                $("#selectedFilesInput").val(Array.from(selectedFiles).join(","));
+            }
+            
+            // Обработка поиска
+            $("#templateSearch").on("input", function() {
+                const searchTerm = $(this).val().trim();
+                
+                if (searchTerm.length >= 3) {
+                    searchTemplates(searchTerm);
+                } else if (searchTerm.length === 0) {
+                    // Возвращаемся к обычному просмотру
+                    loadDirectoryTree(currentPath);
+                }
+            });
+            
+            // Очистка поиска
+            $("#clearSearch").click(function() {
+                $("#templateSearch").val("");
+                loadDirectoryTree(currentPath);
+            });
+            
+            // Поиск шаблонов
+            function searchTemplates(searchTerm) {
+                const treeContainer = $("#directoryTree");
+                
+                treeContainer.html(`
+                    <div class="d-flex justify-content-center p-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                    </div>
+                `);
+                
+                $.get("@Url.Action("SearchTemplates", "TemplatesAdmin")", { searchTerm: searchTerm })
+                    .done(function(data) {
+                        treeContainer.empty();
+                        
+                        if (!data.files || data.files.length === 0) {
+                            treeContainer.html(`
+                                <div class="alert alert-info m-3">
+                                    <i class="bi bi-info-circle me-2"></i> 
+                                    По запросу "${searchTerm}" ничего не найдено
+                                </div>
+                            `);
+                            return;
+                        }
+                        
+                        const list = $("<ul class='directory-list'></ul>");
+                        
+                        // Добавляем найденные файлы
+                        data.files.forEach(file => {
+                            // Если включен режим "только без JSON" и у файла есть JSON, пропускаем
+                            if ($("#showOnlyMissing").is(":checked") && file.hasJsonSchema) {
+                                return;
+                            }
+                            
+                            const isSelected = selectedFiles.has(file.path);
+                            
+                            const fileItem = $(`
+                                <li class="file-item ${file.hasJsonSchema ? 'has-json' : ''}" 
+                                    data-path="${file.path}">
+                                    <div class="file-name ${isSelected ? 'selected-item' : ''}">
+                                        <i class="bi bi-file-earmark-word me-2 text-primary"></i>
+                                        <span>${highlightMatch(file.name, searchTerm)}</span>
+                                        <div class="text-muted small ms-2">${file.path}</div>
+                                        ${file.hasJsonSchema ? 
+                                          '<span class="badge bg-success ms-auto me-2">JSON</span>' : 
+                                          '<span class="badge bg-warning text-dark ms-auto me-2">Нет JSON</span>'}
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input template-checkbox" 
+                                                  type="checkbox" data-path="${file.path}" 
+                                                  ${isSelected ? 'checked' : ''}>
+                                        </div>
+                                    </div>
+                                </li>
+                            `);
+                            
+                            list.append(fileItem);
+                        });
+                        
+                        treeContainer.append(list);
+                        
+                        // Обновляем путь навигации - специальный для результатов поиска
+                        $("#breadcrumb-navigation").html(`
+                            <button class="btn btn-sm btn-outline-secondary me-2" id="goToRootBtn">
+                                <i class="bi bi-house"></i> Корневая директория
+                            </button>
+                            <span class="badge bg-primary">
+                                <i class="bi bi-search"></i> Результаты поиска: ${searchTerm}
+                            </span>
+                        `);
+                        
+                        // Обработчик для кнопки возврата
+                        $("#goToRootBtn").click(function() {
+                            $("#templateSearch").val("");
+                            loadDirectoryTree("");
+                        });
+                        
+                        // Обработчики для чекбоксов
+                        $(".template-checkbox").change(function() {
+                            const path = $(this).data("path");
+                            
+                            if ($(this).is(":checked")) {
+                                selectedFiles.add(path);
+                                $(this).closest(".file-name").addClass("selected-item");
+                            } else {
+                                selectedFiles.delete(path);
+                                $(this).closest(".file-name").removeClass("selected-item");
+                            }
+                            
+                            updateSelectedTemplates();
+                        });
+                        
+                        // Клик по имени файла также переключает чекбокс
+                        $(".file-name").click(function(e) {
+                            // Если клик был не по чекбоксу
+                            if (!$(e.target).hasClass("template-checkbox")) {
+                                const checkbox = $(this).find(".template-checkbox");
+                                checkbox.prop("checked", !checkbox.prop("checked"));
+                                checkbox.trigger("change");
+                            }
+                        });
+                    })
+                    .fail(function(error) {
+                        showError("Ошибка при поиске шаблонов: " + error.statusText);
+                    });
+            }
+            
+            // Подсветка совпадений в поиске
+            function highlightMatch(text, searchTerm) {
+                if (!searchTerm) return text;
+                
+                const regex = new RegExp(searchTerm, 'gi');
+                return text.replace(regex, match => `<span class="bg-warning">${match}</span>`);
+            }
+            
+            // Умная генерация - поиск шаблонов без JSON-схем
+            $("#smartGenerationBtn").click(function() {
+                $(this).prop("disabled", true).html('<i class="bi bi-hourglass"></i> Поиск...');
+                
+                $.get("@Url.Action("GetMissingJsonSchemas", "TemplatesAdmin")")
+                    .done(function(data) {
+                        $("#smartGenerationBtn").prop("disabled", false)
+                            .html('<i class="bi bi-magic"></i> <span class="d-none d-md-inline">Умная генерация</span>');
+                        
+                        if (!data.files || data.files.length === 0) {
+                            showSuccess("Все шаблоны Word уже имеют соответствующие JSON-схемы!");
+                            return;
+                        }
+                        
+                        // Предлагаем добавить найденные шаблоны в выбранные
+                        if (confirm(`Найдено ${data.files.length} шаблонов без JSON-схем. Добавить их в список выбранных?`)) {
+                            // Добавляем их в выбранные
+                            data.files.forEach(file => {
+                                selectedFiles.add(file.path);
+                            });
+                            
+                            updateSelectedTemplates();
+                            showSuccess(`Добавлено ${data.files.length} шаблонов в список выбранных`);
+                            
+                            // Показываем их в дереве - переключаемся в режим "только без JSON"
+                            $("#showOnlyMissing").prop("checked", true);
+                            
+                            // Перезагружаем текущую директорию с новым фильтром
+                            if ($("#templateSearch").val().trim().length >= 3) {
+                                searchTemplates($("#templateSearch").val().trim());
+                            } else {
+                                loadDirectoryTree(currentPath);
+                            }
+                        }
+                    })
+                    .fail(function(error) {
+                        $("#smartGenerationBtn").prop("disabled", false)
+                            .html('<i class="bi bi-magic"></i> <span class="d-none d-md-inline">Умная генерация</span>');
+                        showError("Ошибка при поиске шаблонов без JSON-схем: " + error.statusText);
+                    });
+            });
+            
+            // Переключение режима "только без JSON"
+            $("#showOnlyMissing").change(function() {
+                // Перезагружаем текущую директорию с новым фильтром
+                if ($("#templateSearch").val().trim().length >= 3) {
+                    searchTemplates($("#templateSearch").val().trim());
+                } else {
+                    loadDirectoryTree(currentPath);
+                }
+            });
+            
+            // Выбрать все видимые шаблоны
+            $("#selectAllVisibleBtn").click(function() {
+                const visibleCheckboxes = $(".template-checkbox:visible");
+                
+                if (visibleCheckboxes.length === 0) {
+                    showInfo("Нет видимых шаблонов для выбора");
+                    return;
+                }
+                
+                // Проверяем, все ли выбраны
+                const allChecked = visibleCheckboxes.toArray().every(checkbox => checkbox.checked);
+                
+                // Если все выбраны, снимаем выбор, иначе выбираем все
+                visibleCheckboxes.each(function() {
+                    $(this).prop("checked", !allChecked);
+                    
+                    const path = $(this).data("path");
+                    
+                    if (!allChecked) {
+                        selectedFiles.add(path);
+                        $(this).closest(".file-name").addClass("selected-item");
+                    } else {
+                        selectedFiles.delete(path);
+                        $(this).closest(".file-name").removeClass("selected-item");
+                    }
+                });
+                
+                updateSelectedTemplates();
+                
+                // Меняем текст кнопки
+                $(this).html(allChecked ? 
+                    '<i class="bi bi-check-square"></i> Выбрать все видимые' : 
+                    '<i class="bi bi-square"></i> Снять выбор');
+            });
+            
+            // Генерация выбранных шаблонов
+            $("#generateSelectedBtn").click(function() {
+                if (selectedFiles.size === 0) {
+                    showWarning("Не выбрано ни одного шаблона");
+                    return;
+                }
+                
+                // Создаем данные для отправки
+                const filePaths = Array.from(selectedFiles);
+                
+                // Показываем прогресс
+                $(".generation-progress").show();
+                $("#generationStatus").html(`Подготовка к генерации ${filePaths.length} шаблонов...`);
+                
+                // Отправляем запрос
+                $.ajax({
+                    url: "@Url.Action("GenerateJsonSchemaForFiles", "TemplatesAdmin")",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ filePaths: filePaths }),
+                    beforeSend: function() {
+                        // Блокируем кнопку
+                        $("#generateSelectedBtn").prop("disabled", true);
+                    },
+                    success: function(response) {
+                        // Перенаправляем на страницу с результатами
+                        window.location.href = "@Url.Action("GenerationResults", "TemplatesAdmin")";
+                    },
+                    error: function(xhr, status, error) {
+                        $(".generation-progress").hide();
+                        $("#generateSelectedBtn").prop("disabled", false);
+                        showError("Ошибка при генерации JSON-схем: " + error);
                     }
                 });
             });
+            
+            // Показ сообщений
+            function showSuccess(message) {
+                const toast = $(`
+                    <div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-check-circle me-2"></i> ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+                        </div>
+                    </div>
+                `);
+                
+                showToast(toast);
+            }
+            
+            function showError(message) {
+                const toast = $(`
+                    <div class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-exclamation-triangle me-2"></i> ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+                        </div>
+                    </div>
+                `);
+                
+                showToast(toast);
+            }
+            
+            function showWarning(message) {
+                const toast = $(`
+                    <div class="toast align-items-center bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-exclamation-circle me-2"></i> ${message}
+                            </div>
+                            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+                        </div>
+                    </div>
+                `);
+                
+                showToast(toast);
+            }
+            
+            function showInfo(message) {
+                const toast = $(`
+                    <div class="toast align-items-center bg-info text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-info-circle me-2"></i> ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+                        </div>
+                    </div>
+                `);
+                
+                showToast(toast);
+            }
+            
+            function showToast(toast) {
+                // Создаем контейнер для тостов, если его еще нет
+                if ($("#toastContainer").length === 0) {
+                    $("body").append(`
+                        <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1070;"></div>
+                    `);
+                }
+                
+                // Добавляем тост в контейнер
+                $("#toastContainer").append(toast);
+                
+                // Инициализируем и показываем тост
+                const bsToast = new bootstrap.Toast(toast, {
+                    autohide: true,
+                    delay: 5000
+                });
+                
+                bsToast.show();
+                
+                // Удаляем тост после скрытия
+                toast.on('hidden.bs.toast', function() {
+                    $(this).remove();
+                });
+            }
         });
     </script>
 }

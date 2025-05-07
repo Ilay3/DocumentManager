@@ -956,8 +956,6 @@ namespace DocumentManager.Web.Controllers
                     _templatesBasePath,
                     _jsonBasePath);
 
-
-
                 // Генерируем JSON-схему
                 var result = await jsonGenerator.GenerateJsonSchemaAsync(wordTemplatePath);
 
@@ -1062,5 +1060,199 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
+        [HttpGet]
+        public IActionResult GetDirectoryTree(string basePath = "")
+        {   
+            try
+            {
+                string rootPath = string.IsNullOrEmpty(basePath)
+                    ? _templatesBasePath
+                    : Path.Combine(_templatesBasePath, basePath);
+
+                if (!Directory.Exists(rootPath))
+                {
+                    return Json(new DirectoryTreeViewModel());
+                }
+
+                var result = new DirectoryTreeViewModel
+                {
+                    Directories = Directory.GetDirectories(rootPath)
+                        .Select(d => new DirectoryInfoViewModel
+                        {
+                            Name = Path.GetFileName(d),
+                            Path = Path.GetRelativePath(_templatesBasePath, d),
+                            HasSubdirectories = Directory.GetDirectories(d).Length > 0
+                        })
+                        .OrderBy(d => d.Name)
+                        .ToList(),
+
+                    Files = Directory.GetFiles(rootPath, "*.doc*")
+                        .Select(f => new FileInfoViewModel
+                        {
+                            Name = Path.GetFileName(f),
+                            Path = Path.GetRelativePath(_templatesBasePath, f),
+                            HasJsonSchema = HasCorrespondingJsonSchema(f)
+                        })
+                        .OrderBy(f => f.Name)
+                        .ToList()
+                };
+
+                return Json(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при получении структуры директорий: {ex.Message}");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        // Поиск шаблонов
+        [HttpGet]
+        public IActionResult SearchTemplates(string searchTerm)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(searchTerm) || searchTerm.Length < 3)
+                {
+                    return Json(new { files = new List<FileInfoViewModel>() });
+                }
+
+                var wordFiles = Directory.GetFiles(_templatesBasePath, "*.doc*", SearchOption.AllDirectories)
+                    .Where(f => Path.GetFileName(f).Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                    .Select(f => new FileInfoViewModel
+                    {
+                        Name = Path.GetFileName(f),
+                        Path = Path.GetRelativePath(_templatesBasePath, f),
+                        HasJsonSchema = HasCorrespondingJsonSchema(f)
+                    })
+                    .OrderBy(f => f.Name)
+                    .Take(50) // Ограничиваем результаты поиска
+                    .ToList();
+
+                return Json(new { files = wordFiles });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при поиске шаблонов: {ex.Message}");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        // Умная генерация - поиск шаблонов без JSON-схем
+        [HttpGet]
+        public IActionResult GetMissingJsonSchemas()
+        {
+            try
+            {
+                var wordFiles = Directory.GetFiles(_templatesBasePath, "*.doc*", SearchOption.AllDirectories)
+                    .Where(f => !HasCorrespondingJsonSchema(f))
+                    .Select(f => new FileInfoViewModel
+                    {
+                        Name = Path.GetFileName(f),
+                        Path = Path.GetRelativePath(_templatesBasePath, f),
+                        HasJsonSchema = false
+                    })
+                    .OrderBy(f => f.Name)
+                    .ToList();
+
+                return Json(new { files = wordFiles, count = wordFiles.Count });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при поиске шаблонов без JSON-схем: {ex.Message}");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        // Генерация JSON-схем для нескольких файлов
+        [HttpPost]
+        public async Task<IActionResult> GenerateJsonSchemaForFiles([FromBody] GenerateJsonRequest request)
+        {
+            try
+            {
+                if (request?.FilePaths == null || !request.FilePaths.Any())
+                {
+                    return BadRequest(new { error = "Не указаны файлы для генерации" });
+                }
+
+                var results = new List<JsonGenerationResult>();
+
+                foreach (var relativePath in request.FilePaths)
+                {
+                    // Для каждого файла генерируем JSON-схему
+                    var result = await GenerateJsonSchemaForFile(relativePath);
+                    results.Add(result);
+                }
+
+                var viewModel = new GenerationResultViewModel
+                {
+                    Results = results
+                };
+
+                return View("GenerationResults", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при генерации JSON-схем: {ex.Message}");
+                TempData["ErrorMessage"] = $"Ошибка при генерации JSON-схем: {ex.Message}";
+                return RedirectToAction(nameof(GenerateJsonSchema));
+            }
+        }
+
+        // Метод для генерации JSON-схемы для одного файла
+        private async Task<JsonGenerationResult> GenerateJsonSchemaForFile(string relativePath)
+        {
+            try
+            {
+                var loggerFactory = HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                var jsonGenLogger = loggerFactory.CreateLogger<TemplateJsonGeneratorService>();
+                var jsonGenerator = new TemplateJsonGeneratorService(
+                    jsonGenLogger,
+                    _templatesBasePath,
+                    _jsonBasePath);
+
+                return await jsonGenerator.GenerateJsonSchemaAsync(relativePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при генерации JSON-схемы для {relativePath}: {ex.Message}");
+
+                return new JsonGenerationResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        // Вспомогательный метод для проверки наличия соответствующей JSON-схемы
+        private bool HasCorrespondingJsonSchema(string wordFilePath)
+        {
+            string relativePath = Path.GetRelativePath(_templatesBasePath, wordFilePath);
+            string relativeDirectory = Path.GetDirectoryName(relativePath) ?? string.Empty;
+            string fileName = Path.GetFileNameWithoutExtension(relativePath);
+
+            string jsonPath = Path.Combine(_jsonBasePath, relativeDirectory, fileName + ".json");
+
+            return System.IO.File.Exists(jsonPath);
+        }
+
+        // Обновленный метод страницы генерации JSON-схем
+        [HttpGet]
+        public IActionResult GenerateJsonSchema()
+        {
+            try
+            {
+                return View();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при загрузке страницы генерации JSON-схем");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(Files));
+            }
+        }
     }
+
+
 }
