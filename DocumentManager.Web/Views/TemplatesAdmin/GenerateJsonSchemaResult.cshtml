@@ -1,0 +1,94 @@
+﻿@model DocumentManager.Web.Models.JsonGenerationResultViewModel
+
+@{
+    ViewData["Title"] = "Результат генерации JSON-схемы";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Результат генерации JSON-схемы</h1>
+    <div>
+        <a asp-action="GenerateJsonSchema" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Назад к генерации
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-check-circle"></i> JSON-схема успешно сгенерирована
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="text-muted d-block">Путь к JSON-файлу</label>
+                    <div>@Model.RelativeJsonPath</div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted d-block">Количество плейсхолдеров</label>
+                    <div>@Model.PlaceholdersCount</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="text-muted d-block">Полный путь</label>
+                    <div class="text-truncate small">@Model.JsonFilePath</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i> Для каждого плейсхолдера создано соответствующее поле в JSON-схеме.
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Найденные плейсхолдеры:</h5>
+            <div>
+                <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@Model.RelativeJsonPath" class="btn btn-primary">
+                    <i class="bi bi-pencil"></i> Редактировать JSON
+                </a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Имя плейсхолдера</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Placeholders != null && Model.Placeholders.Any())
+                    {
+                        int i = 1;
+                        foreach (var placeholder in Model.Placeholders)
+                        {
+                            <tr>
+                                <td>@i</td>
+                                <td><code>{{@placeholder}}</code></td>
+                            </tr>
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="2" class="text-center">Плейсхолдеры не найдены</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted">После редактирования JSON-файла необходимо выполнить синхронизацию шаблонов</span>
+            <a asp-action="Sync" class="btn btn-success">
+                <i class="bi bi-arrow-repeat"></i> Синхронизировать шаблоны
+            </a>
+        </div>
+    </div>
+</div>

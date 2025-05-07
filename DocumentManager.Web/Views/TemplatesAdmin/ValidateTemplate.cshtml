@@ -282,6 +282,13 @@
                 <i class="bi bi-arrow-left"></i> Назад к списку
             </a>
             <div>
+                <form asp-action="GenerateJsonSchema" method="post" class="d-inline">
+                    <input type="hidden" name="wordTemplatePath" value="@Model.Template.WordTemplatePath" />
+                    <button type="submit" class="btn btn-warning me-2">
+                        <i class="bi bi-lightning"></i> Сгенерировать JSON-схему
+                    </button>
+                </form>
+
                 <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@Model.Template.JsonSchemaPath" class="btn btn-primary me-2">
                     <i class="bi bi-pencil"></i> Редактировать JSON
                 </a>
@@ -290,5 +297,6 @@
                 </a>
             </div>
         </div>
+
     </div>
 </div>

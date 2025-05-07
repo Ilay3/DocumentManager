@@ -908,6 +908,159 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
+        /// <summary>
+        /// Отображает страницу генерации JSON-схемы на основе шаблона Word
+        /// </summary>
+        [HttpGet]
+        public IActionResult GenerateJsonSchema()
+        {
+            try
+            {
+                // Получаем список шаблонов Word
+                var wordTemplates = _templateManagerService.GetWordTemplateFiles();
+
+                // Создаем модель представления
+                var viewModel = new GenerateJsonSchemaViewModel
+                {
+                    WordTemplates = wordTemplates
+                };
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при загрузке страницы генерации JSON-схемы");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(Files));
+            }
+        }
+
+        /// <summary>
+        /// Обрабатывает запрос на генерацию JSON-схемы
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> GenerateJsonSchema(string wordTemplatePath)
+        {
+            if (string.IsNullOrEmpty(wordTemplatePath))
+            {
+                TempData["ErrorMessage"] = "Не указан путь к шаблону Word";
+                return RedirectToAction(nameof(GenerateJsonSchema));
+            }
+
+            try
+            {
+                var loggerFactory = HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                var jsonGenLogger = loggerFactory.CreateLogger<TemplateJsonGeneratorService>();
+                var jsonGenerator = new TemplateJsonGeneratorService(
+                    jsonGenLogger,  
+                    _templatesBasePath,
+                    _jsonBasePath);
+
+
+
+                // Генерируем JSON-схему
+                var result = await jsonGenerator.GenerateJsonSchemaAsync(wordTemplatePath);
+
+                if (result.Success)
+                {
+                    TempData["SuccessMessage"] = $"JSON-схема успешно сгенерирована: {result.RelativeJsonPath}";
+
+                    // Возвращаем детали результата
+                    var viewModel = new JsonGenerationResultViewModel
+                    {
+                        Success = true,
+                        JsonFilePath = result.JsonFilePath,
+                        RelativeJsonPath = result.RelativeJsonPath,
+                        PlaceholdersCount = result.PlaceholdersCount,
+                        Placeholders = result.Placeholders
+                    };
+
+                    return View("GenerateJsonSchemaResult", viewModel);
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = result.ErrorMessage;
+                    return RedirectToAction(nameof(GenerateJsonSchema));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при генерации JSON-схемы для шаблона {wordTemplatePath}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(GenerateJsonSchema));
+            }
+        }
+
+        /// <summary>
+        /// Обрабатывает запрос на пакетную генерацию JSON-схем
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> BatchGenerateJsonSchema(string folderPath)
+        {
+            if (string.IsNullOrEmpty(folderPath))
+            {
+                TempData["ErrorMessage"] = "Не указан путь к папке с шаблонами Word";
+                return RedirectToAction(nameof(GenerateJsonSchema));
+            }
+
+            try
+            {
+                // Создаем экземпляр сервиса генерации JSON
+                var loggerFactory = HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                var jsonGenLogger = loggerFactory.CreateLogger<TemplateJsonGeneratorService>();
+                var jsonGenerator = new TemplateJsonGeneratorService(
+                    jsonGenLogger, 
+                    _templatesBasePath,
+                    _jsonBasePath);
+
+
+                // Получаем список файлов Word в указанной папке
+                string searchPath = Path.Combine(_templatesBasePath, folderPath);
+                var wordFiles = Directory.GetFiles(searchPath, "*.doc*", SearchOption.TopDirectoryOnly)
+                    .Select(f => Path.GetRelativePath(_templatesBasePath, f))
+                    .ToList();
+
+                if (!wordFiles.Any())
+                {
+                    TempData["WarningMessage"] = $"В папке {folderPath} не найдено файлов Word";
+                    return RedirectToAction(nameof(GenerateJsonSchema));
+                }
+
+                // Результаты генерации
+                var results = new List<JsonGenerationResult>();
+                int successCount = 0;
+
+                // Генерируем JSON-схемы для каждого файла
+                foreach (var wordFile in wordFiles)
+                {
+                    var result = await jsonGenerator.GenerateJsonSchemaAsync(wordFile);
+                    results.Add(result);
+
+                    if (result.Success)
+                        successCount++;
+                }
+
+                // Формируем сообщение о результатах
+                TempData["SuccessMessage"] = $"Сгенерировано {successCount} из {wordFiles.Count} JSON-схем";
+
+                // Возвращаем детали результата
+                var viewModel = new BatchJsonGenerationResultViewModel
+                {
+                    FolderPath = folderPath,
+                    TotalFiles = wordFiles.Count,
+                    SuccessCount = successCount,
+                    Results = results
+                };
+
+                return View("BatchGenerateJsonSchemaResult", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при пакетной генерации JSON-схем для папки {folderPath}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(GenerateJsonSchema));
+            }
+        }
 
     }
 }

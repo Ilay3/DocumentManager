@@ -1,0 +1,142 @@
+﻿@model DocumentManager.Web.Models.BatchJsonGenerationResultViewModel
+
+@{
+    ViewData["Title"] = "Результат пакетной генерации JSON-схем";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Результат пакетной генерации JSON-схем</h1>
+    <div>
+        <a asp-action="GenerateJsonSchema" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Назад к генерации
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-check-circle"></i> Результаты генерации JSON-схем для папки: @Model.FolderPath
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <span class="badge bg-primary">Всего файлов: @Model.TotalFiles</span>
+                <span class="badge bg-success">Успешно: @Model.SuccessCount</span>
+                @if (Model.TotalFiles != Model.SuccessCount)
+                {
+                    <span class="badge bg-danger">Ошибок: @(Model.TotalFiles - Model.SuccessCount)</span>
+                }
+            </div>
+            <div>
+                <a asp-action="Sync" class="btn btn-success">
+                    <i class="bi bi-arrow-repeat"></i> Синхронизировать шаблоны
+                </a>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i> JSON-схемы сгенерированы для выбранной папки. Для применения изменений необходимо выполнить синхронизацию шаблонов.
+        </div>
+
+        <h5>Результаты по файлам:</h5>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Шаблон Word</th>
+                        <th>JSON-схема</th>
+                        <th>Плейсхолдеры</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Results != null && Model.Results.Any())
+                    {
+                        int i = 1;
+                        foreach (var result in Model.Results)
+                        {
+                            <tr>
+                                <td>@i</td>
+                                <td class="text-truncate" style="max-width: 250px;" title="@System.IO.Path.GetFileName(result.JsonFilePath)">
+                                    @System.IO.Path.GetFileName(result.JsonFilePath)
+                                </td>
+                                <td class="text-truncate" style="max-width: 250px;" title="@result.RelativeJsonPath">
+                                    @result.RelativeJsonPath
+                                </td>
+                                <td>
+                                    @if (result.Success)
+                                    {
+                                        <span class="badge bg-info">@result.PlaceholdersCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (result.Success)
+                                    {
+                                        <span class="badge bg-success">Успешно</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Ошибка</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (result.Success)
+                                    {
+                                        <a asp-action="ViewFile" asp-route-type="json" asp-route-path="@result.RelativeJsonPath" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i> Редактировать
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                                title="@result.ErrorMessage">
+                                            <i class="bi bi-exclamation-circle"></i> Ошибка
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center">Нет результатов</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <a asp-action="GenerateJsonSchema" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Назад к генерации
+            </a>
+            <a asp-action="Files" class="btn btn-outline-secondary">
+                <i class="bi bi-folder"></i> Управление файлами
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Инициализация тултипов для отображения ошибок
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+            });
+        });
+    </script>
+}

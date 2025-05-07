@@ -1,0 +1,134 @@
+﻿@model DocumentManager.Web.Models.GenerateJsonSchemaViewModel
+@using System.IO;
+@{
+    ViewData["Title"] = "Генерация JSON-схем";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Генерация JSON-схем из шаблонов Word</h1>
+    <div>
+        <partial name="_BackButton" model='new BackButtonModel {
+    FallbackUrl = Url.Action("Files", "TemplatesAdmin"),
+    ButtonText = "Назад к файлам"
+}' />
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-earmark-word"></i> Генерация JSON-схемы для одного файла
+                </h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="GenerateJsonSchema" method="post">
+                    <div class="form-group mb-3">
+                        <label for="wordTemplatePath" class="form-label">Выберите шаблон Word</label>
+                        <select id="wordTemplatePath" name="wordTemplatePath" class="form-select">
+                            <option value="">-- Выберите шаблон --</option>
+                            @foreach (var template in Model.WordTemplates)
+                            {
+                                <option value="@template.Path">@template.Path</option>
+                            }
+                        </select>
+                        <div class="form-text">Выберите шаблон Word для генерации JSON-схемы</div>
+                    </div>
+                    <div class="form-group text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-gear"></i> Сгенерировать JSON-схему
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-folder2"></i> Пакетная генерация JSON-схем для папки
+                </h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="BatchGenerateJsonSchema" method="post">
+                    <div class="form-group mb-3">
+                        <label for="folderPath" class="form-label">Выберите папку с шаблонами</label>
+
+                        <select id="folderPath" name="folderPath" class="form-select">
+                            <option value="">-- Выберите папку --</option>
+
+                            @{
+                                // Получаем уникальные пути папок
+                                var folders = Model.WordTemplates
+                                .Select(t => System.IO.Path.GetDirectoryName(t.Path))
+                                .Where(p => !string.IsNullOrEmpty(p))
+                                .Distinct()
+                                .OrderBy(p => p)
+                                .ToList();
+
+                                foreach (var folder in folders)
+                                {
+                                    <option value="@folder">@folder</option>
+                                }
+                            }
+                        </select>
+                        <div class="form-text">Выберите папку с шаблонами Word для пакетной генерации JSON-схем</div>
+                    </div>
+                    <div class="form-group text-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-lightning"></i> Пакетная генерация
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-info-circle"></i> Информация о генерации JSON-схем
+        </h5>
+    </div>
+    <div class="card-body">
+        <p>Данный инструмент позволяет автоматически сгенерировать JSON-схемы на основе шаблонов Word. Процесс работает следующим образом:</p>
+
+        <ol>
+            <li>Анализируется выбранный шаблон Word и в нём находятся все плейсхолдеры (в форматах {{FieldName}}, &lt;&lt;FieldName&gt;&gt;, [FieldName], $FieldName)</li>
+            <li>На основе найденных плейсхолдеров формируется JSON-схема с определениями полей</li>
+            <li>JSON-схема сохраняется в директории с тем же относительным путем, что и шаблон Word, но в папке Json вместо Word</li>
+        </ol>
+
+        <p>
+            Например, если выбран шаблон <code>Passport/ЭСУВТ.01-06-00 (Депо)/template.docx</code> из папки Word,
+            то JSON-схема будет сохранена в <code>Json/Passport/ЭСУВТ.01-06-00 (Депо)/template.json</code>.
+        </p>
+
+        <div class="alert alert-info">
+            <i class="bi bi-lightbulb"></i> Пакетная генерация позволяет обработать все файлы Word в выбранной папке за один шаг.
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Фильтрация списка шаблонов Word
+            $('#templateSearch').on('input', function() {
+                var searchTerm = $(this).val().toLowerCase();
+                $('#wordTemplatePath option').each(function() {
+                    var path = $(this).text().toLowerCase();
+                    if (path === '' || path.includes(searchTerm)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
+        });
+    </script>
+}
