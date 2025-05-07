@@ -911,29 +911,29 @@ namespace DocumentManager.Web.Controllers
         /// <summary>
         /// Отображает страницу генерации JSON-схемы на основе шаблона Word
         /// </summary>
-        [HttpGet]
-        public IActionResult GenerateJsonSchema()
-        {
-            try
-            {
-                // Получаем список шаблонов Word
-                var wordTemplates = _templateManagerService.GetWordTemplateFiles();
+        //[HttpGet]
+        //public IActionResult GenerateJsonSchema()
+        //{
+        //    try
+        //    {
+        //        // Получаем список шаблонов Word
+        //        var wordTemplates = _templateManagerService.GetWordTemplateFiles();
 
-                // Создаем модель представления
-                var viewModel = new GenerateJsonSchemaViewModel
-                {
-                    WordTemplates = wordTemplates
-                };
+        //        // Создаем модель представления
+        //        var viewModel = new GenerateJsonSchemaViewModel
+        //        {
+        //            WordTemplates = wordTemplates
+        //        };
 
-                return View(viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка при загрузке страницы генерации JSON-схемы");
-                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
-                return RedirectToAction(nameof(Files));
-            }
-        }
+        //        return View(viewModel);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Ошибка при загрузке страницы генерации JSON-схемы");
+        //        TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+        //        return RedirectToAction(nameof(Files));
+        //    }
+        //}
 
         /// <summary>
         /// Обрабатывает запрос на генерацию JSON-схемы
@@ -952,7 +952,7 @@ namespace DocumentManager.Web.Controllers
                 var loggerFactory = HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
                 var jsonGenLogger = loggerFactory.CreateLogger<TemplateJsonGeneratorService>();
                 var jsonGenerator = new TemplateJsonGeneratorService(
-                    jsonGenLogger,  
+                    jsonGenLogger,
                     _templatesBasePath,
                     _jsonBasePath);
 
@@ -1007,7 +1007,7 @@ namespace DocumentManager.Web.Controllers
                 var loggerFactory = HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
                 var jsonGenLogger = loggerFactory.CreateLogger<TemplateJsonGeneratorService>();
                 var jsonGenerator = new TemplateJsonGeneratorService(
-                    jsonGenLogger, 
+                    jsonGenLogger,
                     _templatesBasePath,
                     _jsonBasePath);
 
@@ -1062,7 +1062,7 @@ namespace DocumentManager.Web.Controllers
 
         [HttpGet]
         public IActionResult GetDirectoryTree(string basePath = "")
-        {   
+        {
             try
             {
                 string rootPath = string.IsNullOrEmpty(basePath)
@@ -1164,7 +1164,6 @@ namespace DocumentManager.Web.Controllers
             }
         }
 
-        // Генерация JSON-схем для нескольких файлов
         [HttpPost]
         public async Task<IActionResult> GenerateJsonSchemaForFiles([FromBody] GenerateJsonRequest request)
         {
@@ -1184,18 +1183,30 @@ namespace DocumentManager.Web.Controllers
                     results.Add(result);
                 }
 
-                var viewModel = new GenerationResultViewModel
-                {
-                    Results = results
-                };
+                // Сохраняем только пути к сгенерированным файлам в Session
+                var filePaths = results
+                    .Where(r => r.Success)
+                    .Select(r => r.RelativeJsonPath)
+                    .ToList();
 
-                return View("GenerationResults", viewModel);
+                // Сохраняем базовую информацию о результатах в Session
+                // Используем простые типы, которые можно сериализовать
+                HttpContext.Session.SetString("GeneratedFilePaths",
+                    System.Text.Json.JsonSerializer.Serialize(filePaths));
+                HttpContext.Session.SetInt32("SuccessCount",
+                    results.Count(r => r.Success));
+                HttpContext.Session.SetInt32("ErrorCount",
+                    results.Count(r => !r.Success));
+
+                // Передаем только результат выполнения и редирект
+                return Ok(new { redirectUrl = Url.Action("GenerationResults") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Ошибка при генерации JSON-схем: {ex.Message}");
+                // В случае ошибки, сохраняем сообщение об ошибке в TempData (это простая строка)
                 TempData["ErrorMessage"] = $"Ошибка при генерации JSON-схем: {ex.Message}";
-                return RedirectToAction(nameof(GenerateJsonSchema));
+                return StatusCode(500, new { error = ex.Message });
             }
         }
 
@@ -1252,7 +1263,57 @@ namespace DocumentManager.Web.Controllers
                 return RedirectToAction(nameof(Files));
             }
         }
+
+        [HttpGet]
+        public IActionResult GenerationResults()
+        {
+            try
+            {
+                // Получаем сохраненные данные из Session
+                var filePathsJson = HttpContext.Session.GetString("GeneratedFilePaths");
+                var successCount = HttpContext.Session.GetInt32("SuccessCount") ?? 0;
+                var errorCount = HttpContext.Session.GetInt32("ErrorCount") ?? 0;
+
+                var filePaths = string.IsNullOrEmpty(filePathsJson)
+                    ? new List<string>()
+                    : System.Text.Json.JsonSerializer.Deserialize<List<string>>(filePathsJson);
+
+                // Загружаем результаты на основе сохраненных путей
+                var results = new List<JsonGenerationResult>();
+                foreach (var path in filePaths)
+                {
+                    // Создаем упрощенный объект результата с информацией о файле
+                    var result = new JsonGenerationResult
+                    {
+                        Success = true,
+                        RelativeJsonPath = path,
+                        JsonFilePath = Path.Combine(_jsonBasePath, path),
+                        PlaceholdersCount = 0 // Можно определить более точно, если необходимо
+                    };
+
+                    results.Add(result);
+                }
+
+                // Создаем модель для представления
+                var viewModel = new GenerationResultViewModel
+                {
+                    Results = results
+                };
+
+                // Очищаем данные сессии после использования
+                HttpContext.Session.Remove("GeneratedFilePaths");
+                HttpContext.Session.Remove("SuccessCount");
+                HttpContext.Session.Remove("ErrorCount");
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при отображении результатов генерации");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+                return RedirectToAction(nameof(GenerateJsonSchema));
+            }
+        }
+
     }
-
-
 }

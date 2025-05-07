@@ -697,9 +697,14 @@
                         // Блокируем кнопку
                         $("#generateSelectedBtn").prop("disabled", true);
                     },
-                    success: function(response) {
-                        // Перенаправляем на страницу с результатами
-                        window.location.href = "@Url.Action("GenerationResults", "TemplatesAdmin")";
+                    success: function (response) {
+                        // Проверяем, есть ли URL для перенаправления
+                        if (response && response.redirectUrl) {
+                            window.location.href = response.redirectUrl;
+                        } else {
+                            // Если нет URL, просто перенаправляем на страницу генерации
+                            window.location.href = "@Url.Action("GenerateJsonSchema", "TemplatesAdmin")";
+                        }
                     },
                     error: function(xhr, status, error) {
                         $(".generation-progress").hide();
