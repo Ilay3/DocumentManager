@@ -54,6 +54,30 @@ builder.Services.AddScoped<TemplateManagerService>(provider =>
         jsonBasePath,
         templatesBasePath
     ));
+
+// НОВОЕ: Регистрируем сервисы для мониторинга версий шаблонов
+builder.Services.AddScoped<TemplateVersionMonitoringService>(provider =>
+    new TemplateVersionMonitoringService(
+        provider.GetRequiredService<ApplicationDbContext>(),
+        provider.GetRequiredService<ITemplateService>(),
+        provider.GetRequiredService<ILogger<TemplateVersionMonitoringService>>(),
+        templatesBasePath,
+        jsonBasePath
+    ));
+
+builder.Services.AddSingleton<TemplateUpdateNotificationService>();
+
+// НОВОЕ: Добавляем фоновый сервис для мониторинга версий шаблонов
+builder.Services.AddHostedService<TemplateVersionBackgroundService>();
+
+// НОВОЕ: Добавляем фоновый сервис для очистки документов (если еще не добавлен)
+builder.Services.AddHostedService<DocumentCleanupService>(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    var logger = provider.GetRequiredService<ILogger<DocumentCleanupService>>();
+    return new DocumentCleanupService(configuration, logger);
+});
+
 builder.Services.AddMemoryCache();
 
 // Регистрируем службы для авторизации и отслеживания прогресса

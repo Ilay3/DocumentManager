@@ -361,7 +361,8 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
-
+    <!-- В DocumentManager.Web/Views/Shared/_Layout.cshtml добавить перед закрывающим тегом body -->
+    @await Html.PartialAsync("_TemplateVersionNotifications")
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->

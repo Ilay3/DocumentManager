@@ -87,7 +87,6 @@ namespace DocumentManager.Infrastructure.Services
             var extension = Path.GetExtension(fullTemplatePath).ToLowerInvariant();
             byte[] documentContent;
 
-            // Выбираем метод обработки в зависимости от расширения файла
             try
             {
                 if (extension == ".docx")
@@ -108,14 +107,12 @@ namespace DocumentManager.Infrastructure.Services
                 throw;
             }
 
-            // Create output directory if it doesn't exist
             if (!Directory.Exists(_outputBasePath))
             {
                 _logger.LogInformation($"Создание директории вывода: {_outputBasePath}");
                 Directory.CreateDirectory(_outputBasePath);
             }
 
-            // Save to file system
             var outputPath = Path.Combine(_outputBasePath, outputFileName);
             _logger.LogInformation($"Сохранение сгенерированного документа в: {outputPath}");
             await File.WriteAllBytesAsync(outputPath, documentContent);
@@ -285,12 +282,10 @@ namespace DocumentManager.Infrastructure.Services
 
             var result = new List<(int DocumentId, string FilePath, byte[] Content)>();
 
-            // Generate main document
             try
             {
                 _logger.LogInformation($"Генерация основного документа ID: {documentId}");
                 var (mainPath, mainContent) = await GenerateDocumentAsync(documentId);
-                // Update the document with content
                 await _documentService.UpdateDocumentContentAsync(documentId, mainContent, mainPath);
                 result.Add((documentId, mainPath, mainContent));
                 _logger.LogInformation($"Основной документ успешно сгенерирован: {mainPath}");
@@ -300,7 +295,6 @@ namespace DocumentManager.Infrastructure.Services
                 _logger.LogError(ex, $"Ошибка генерации основного документа ID {documentId}: {ex.Message}");
             }
 
-            // Generate related documents
             try
             {
                 var relatedDocuments = await _documentService.GetRelatedDocumentsAsync(documentId);

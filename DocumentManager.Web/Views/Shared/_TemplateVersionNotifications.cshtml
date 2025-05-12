@@ -1,0 +1,200 @@
+﻿<!-- DocumentManager.Web/Views/Shared/_TemplateVersionNotifications.cshtml -->
+<div id="templateVersionNotifications">
+    <!-- Будет заполняться через JavaScript -->
+</div>
+
+<style>
+    .template-update-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        max-width: 400px;
+        z-index: 1050;
+        animation: slideInRight 0.3s ease-out;
+    }
+
+    @@keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .update-details {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+</style>
+
+<script>
+    // Проверка уведомлений о версиях шаблонов
+    async function checkTemplateVersionNotifications() {
+        try {
+            const response = await fetch('/api/TemplateVersion/notifications');
+            const notifications = await response.json();
+
+            displayNotifications(notifications);
+        } catch (error) {
+            console.error('Ошибка при получении уведомлений:', error);
+        }
+    }
+
+    function displayNotifications(notifications) {
+        const container = document.getElementById('templateVersionNotifications');
+        container.innerHTML = '';
+
+        notifications.forEach(notification => {
+            const notificationElement = createNotificationElement(notification);
+            container.appendChild(notificationElement);
+        });
+    }
+
+    function createNotificationElement(notification) {
+        const div = document.createElement('div');
+        div.className = 'alert alert-warning alert-dismissible template-update-notification';
+        div.setAttribute('role', 'alert');
+
+        div.innerHTML = `
+            <h5 class="alert-heading">
+                <i class="bi bi-exclamation-triangle"></i>
+                Обновления шаблонов
+            </h5>
+            <p>${notification.message}</p>
+            <hr>
+            <div class="update-details">
+                <ul class="list-unstyled">
+                    ${notification.updates.map(update => `
+                        <li>
+                            <strong>${update.templateCode}</strong>:
+                            версия ${update.oldVersion || 'без версии'} → ${update.newVersion}
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+            <div class="d-flex justify-content-between">
+                <button class="btn btn-success btn-sm" onclick="applyUpdates('${notification.id}')">
+                    <i class="bi bi-check-circle"></i> Применить
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="dismissNotification('${notification.id}')">
+                    <i class="bi bi-x"></i> Скрыть
+                </button>
+            </div>
+        `;
+
+        return div;
+    }
+
+    async function applyUpdates(notificationId) {
+        try {
+            const response = await fetch('/api/TemplateVersion/apply', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notificationId: notificationId })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Показываем сообщение об успехе
+                showToast('Обновления успешно применены', 'success');
+                // Обновляем список уведомлений
+                checkTemplateVersionNotifications();
+            } else {
+                showToast('Ошибка при применении обновлений', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка при применении обновлений:', error);
+            showToast('Ошибка при применении обновлений', 'error');
+        }
+    }
+
+    async function dismissNotification(notificationId) {
+        try {
+            const response = await fetch(`/api/TemplateVersion/notifications/${notificationId}/dismiss`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                checkTemplateVersionNotifications();
+            }
+        } catch (error) {
+            console.error('Ошибка при скрытии уведомления:', error);
+        }
+    }
+
+    async function manualCheckVersions() {
+        try {
+            showToast('Проверяем обновления...', 'info');
+
+            const response = await fetch('/api/TemplateVersion/check', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                if (result.updates && result.updates.length > 0) {
+                    showToast(result.message, 'warning');
+                    checkTemplateVersionNotifications();
+                } else {
+                    showToast(result.message, 'success');
+                }
+            } else {
+                showToast('Ошибка при проверке обновлений', 'error');
+            }
+        } catch (error) {
+            console.error('Ошибка при проверке версий:', error);
+            showToast('Ошибка при проверке обновлений', 'error');
+        }
+    }
+
+    function showToast(message, type) {
+        // Функция для показа всплывающих сообщений
+        const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'info'} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+            </div>
+        `;
+
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '1070';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    // Проверяем уведомления при загрузке страницы
+    document.addEventListener('DOMContentLoaded', () => {
+        checkTemplateVersionNotifications();
+
+        // Периодически проверяем уведомления (каждые 5 минут)
+        setInterval(checkTemplateVersionNotifications, 5 * 60 * 1000);
+    });
+</script>
